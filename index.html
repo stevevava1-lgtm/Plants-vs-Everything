@@ -10,7 +10,7 @@
   <div id="hud">
     <div class="hud-main">
       <div id="money">金錢：$<span id="moneyVal">20</span></div>
-      <div id="hint">WASD · <strong>B</strong> 背包 · 綠格 <strong>E</strong> 種植 · 空灰格 <strong>E</strong> 放單位 · <strong>有單位的灰格 E</strong> 收回背包 · <strong>R</strong> 解鎖道／灰格 · 左商店 · 右回收</div>
+      <div id="hint">WASD · <strong>B</strong> 背包 · 綠格 <strong>E</strong> 種植／<strong>選鏟剷除</strong> · 空灰格 <strong>E</strong> 放單位 · <strong>有單位的灰格 E</strong> 收回 · <strong>R</strong> 解鎖 · 左<strong>植物店</strong> · 左下<strong>道具店</strong> · 右回收</div>
     </div>
     <button type="button" id="btnSettings" class="settings-btn" title="設定" aria-label="設定">⚙</button>
   </div>
@@ -22,12 +22,17 @@
     <button type="button" id="btnCloseBackpack" class="backpack-close" title="關閉背包">×</button>
     <div class="inv-section">
       <h3>植物（<span id="plantCount">0</span> / 10）</h3>
-      <p class="inv-sub">點一下選取草莓苗或蕨苗，再到綠格按 E 種植</p>
+      <p class="inv-sub">點一下選取草莓／蕨／葡萄苗，再到綠格按 E 種植</p>
       <div id="plantSlots" class="inv-row plant-row"></div>
+    </div>
+    <div class="inv-section inv-section-gears">
+      <h3>道具 <span class="inv-en">Gears</span> · 鏟子 <span id="shovelStackCount">0</span></h3>
+      <p class="inv-sub">點選鏟子後，站到該株綠格按 <strong>E</strong> 剷除（每次消耗一把，可疊加）</p>
+      <div id="gearSlots" class="inv-row gear-row"></div>
     </div>
     <div class="inv-section">
       <h3>敵人（<span id="enemyCount">0</span> / 100）</h3>
-      <p class="inv-sub">點一下選取蜜蜂、蝴蝶或限定烏鴉；可到右側「回收」賣掉</p>
+      <p class="inv-sub">點一下選取蜜蜂、蝴蝶、甲蟲、蜻蜓王或限定烏鴉；可到右側「回收」賣掉</p>
       <div id="enemySlots" class="enemy-grid"></div>
     </div>
   </div>
@@ -37,10 +42,12 @@
   <div id="shopModal" class="modal hidden">
     <div class="modal-inner">
       <h2>商店</h2>
-      <p>草莓苗 — $<span id="shopPrice">20</span></p>
+      <p>草莓苗 — $<span id="shopPrice">20</span>（射擊，5 秒成熟）</p>
       <button type="button" id="btnBuy">購買草莓苗</button>
-      <p>蕨類幼苗 — $<span id="fernPrice">50</span>（近戰，每秒 2 傷害）</p>
+      <p>蕨類幼苗 — $<span id="fernPrice">50</span>（近戰 2／秒，10 秒成熟）</p>
       <button type="button" id="btnBuyFern">購買蕨類</button>
+      <p>葡萄苗 — $<span id="grapePrice">500</span>（紫色子彈，每 0.3 秒 1 傷害，15 秒成熟）</p>
+      <button type="button" id="btnBuyGrape">購買葡萄苗</button>
       <button type="button" id="btnClose">關閉</button>
     </div>
   </div>
@@ -68,13 +75,22 @@
     </div>
   </div>
 
+  <div id="gearModal" class="modal hidden">
+    <div class="modal-inner">
+      <h2>道具店</h2>
+      <p>鏟子 — $<span id="shovelPrice">35</span>（背包疊加；選取後對植株按 E 剷除，每次一把）</p>
+      <button type="button" id="btnBuyShovel">購買鏟子</button>
+      <button type="button" id="btnCloseGear">關閉</button>
+    </div>
+  </div>
+
   <div id="sellModal" class="modal hidden">
     <div class="modal-inner">
       <h2>回收店</h2>
-      <p>蜜蜂 $<span id="sellPrice">8</span> · 蝴蝶 $<span id="sellButterflyPrice">15</span> · 烏鴉 $<span id="sellRavenPrice">80</span> · 可選取／自動賣一隻／全部賣出</p>
+      <p>蜜蜂 $<span id="sellPrice">8</span> · 蝴蝶 $<span id="sellButterflyPrice">15</span> · 甲蟲 $<span id="sellBeetlePrice">12</span> · 蜻蜓王 $<span id="sellDragonflyPrice">60</span> · 烏鴉 $<span id="sellRavenPrice">80</span> · 可選取／自動賣一隻／全部賣出</p>
       <button type="button" id="btnSellSelected">賣出選取的單位</button>
       <button type="button" id="btnSellOne">賣出一隻（自動）</button>
-      <button type="button" id="btnSellAll">全部賣出（蜜蜂／蝴蝶／烏鴉）</button>
+      <button type="button" id="btnSellAll">全部賣出（蜜蜂／蝴蝶／甲蟲／蜻蜓王／烏鴉）</button>
       <button type="button" id="btnCloseSell">關閉</button>
     </div>
   </div>

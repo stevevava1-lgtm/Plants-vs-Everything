@@ -8,13 +8,20 @@
   const enemyCountEl = document.getElementById("enemyCount");
   const plantSlotsEl = document.getElementById("plantSlots");
   const enemySlotsEl = document.getElementById("enemySlots");
+  const gearSlotsEl = document.getElementById("gearSlots");
+  const shovelStackCountEl = document.getElementById("shovelStackCount");
   const inventoryPanel = document.getElementById("inventoryPanel");
   const toast = document.getElementById("toast");
   const shopModal = document.getElementById("shopModal");
+  const gearModal = document.getElementById("gearModal");
   const sellModal = document.getElementById("sellModal");
   const btnBuy = document.getElementById("btnBuy");
   const btnBuyFern = document.getElementById("btnBuyFern");
+  const btnBuyGrape = document.getElementById("btnBuyGrape");
   const btnClose = document.getElementById("btnClose");
+  const btnBuyShovel = document.getElementById("btnBuyShovel");
+  const btnCloseGear = document.getElementById("btnCloseGear");
+  const shovelPriceEl = document.getElementById("shovelPrice");
   const btnSellSelected = document.getElementById("btnSellSelected");
   const btnSellOne = document.getElementById("btnSellOne");
   const btnSellAll = document.getElementById("btnSellAll");
@@ -27,6 +34,8 @@
   const codeInput = document.getElementById("codeInput");
   const btnRedeemCode = document.getElementById("btnRedeemCode");
   const sellRavenPriceEl = document.getElementById("sellRavenPrice");
+  const sellBeetlePriceEl = document.getElementById("sellBeetlePrice");
+  const sellDragonflyPriceEl = document.getElementById("sellDragonflyPrice");
 
   const PLANT_SLOTS = 10;
   const ENEMY_SLOTS = 100;
@@ -43,11 +52,20 @@
   const GRID_Y = 140;
   const STRAWBERRY_COST = 20;
   const FERN_COST = 50;
-  const GROW_TIME = 5;
+  const GROW_TIME_STRAWBERRY = 5;
+  const GROW_TIME_FERN = 10;
+  const GROW_TIME_GRAPE = 15;
   const FERN_DPS = 2;
+  /** 葡萄：每發 1 傷，發射間隔（秒） */
+  const GRAPE_SHOOT_INTERVAL = 0.3;
+  const GRAPE_COST = 500;
+  const SHOVEL_COST = 35;
   /** 蕨類近戰：同欄、在植株前方（靠生成端）的距離內 */
   const FERN_MELEE_RANGE = 72;
-  const SPAWN_INTERVAL = 7;
+  const SPAWN_INTERVAL_BASE = 7;
+  /** 每多解鎖一條種植道，生成間隔少 1 秒（中央起始道不扣） */
+  const MIN_SPAWN_INTERVAL_SEC = 1.5;
+  const KILLS_PER_DRAGONFLY_BOSS = 100;
   const BEE_HP = 3;
   const BUTTERFLY_HP = 5;
   const BEE_DOLLAR_PER_SEC = 1;
@@ -61,11 +79,20 @@
   const RAVEN_DOLLAR_PER_SEC = 10;
   const RAVEN_SPEED = 32;
   const SELL_RAVEN_PRICE = 80;
+  const BEETLE_HP = 10;
+  const BEETLE_DOLLAR_PER_SEC = 4;
+  const BEETLE_SPEED = 36;
+  const SELL_BEETLE_PRICE = 12;
+  const DRAGONFLY_HP = 70;
+  const DRAGONFLY_DOLLAR_PER_SEC = 17;
+  const DRAGONFLY_SPEED = 26;
+  const SELL_DRAGONFLY_PRICE = 60;
 
-  /** 蝴蝶 1/3：權重 bee:butterfly = 2:1 */
+  /** 權重 3:2:1（蜜蜂:蝴蝶:甲蟲），甲蟲約 1/6 */
   const MOB_SPAWN_WEIGHTS = [
-    { type: "bee", weight: 2 },
-    { type: "butterfly", weight: 1 },
+    { type: "bee", weight: 3 },
+    { type: "butterfly", weight: 2 },
+    { type: "beetle", weight: 1 },
   ];
 
   /** 灰格 1 免費；格 2～10 對應 index 1～9 */
@@ -74,7 +101,8 @@
   /** 中央道（欄 3）免費；其餘六道由中往外：左 300/600/1200，右 2400/4800/9600 */
   const LANE_UNLOCK_PRICE = [300, 600, 1200, 0, 2400, 4800, 9600];
 
-  const shopRect = { x: 40, y: 220, w: 100, h: 140 };
+  const shopRect = { x: 40, y: 212, w: 100, h: 152 };
+  const gearShopRect = { x: 40, y: 372, w: 100, h: 86 };
   const sellShopRect = { x: 780, y: 220, w: 100, h: 140 };
   const spawnerRect = {
     x: GRID_X + 4,
@@ -97,7 +125,7 @@
       w: GRAY_SLOT_W,
       h: GRAY_SLOT_W,
       locked: i !== 0,
-      /** @type {null | 'bee' | 'butterfly' | 'raven'} */
+      /** @type {null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} */
       worker: null,
     });
   }
@@ -105,14 +133,17 @@
   /** 僅中央綠道（欄 3）起始解鎖 */
   const laneUnlocked = [false, false, false, true, false, false, false];
 
-  /** @type {(null | 'seed' | 'fern')[]} */
+  /** @type {(null | 'seed' | 'fern' | 'grape')[]} */
   const plantInv = new Array(PLANT_SLOTS).fill(null);
-  /** @type {(null | 'bee' | 'butterfly' | 'raven')[]} */
+  /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly')[]} */
   const enemyInv = new Array(ENEMY_SLOTS).fill(null);
 
   let selectedPlantSlot = -1;
   let selectedEnemySlot = -1;
-  /** @type {null | 'buy' | 'sell'} */
+  /** @type {null | 'shovel'} */
+  let selectedGear = null;
+  let shovelCount = 0;
+  /** @type {null | 'buy' | 'sell' | 'gear'} */
   let activeModal = null;
   let money = 20;
   let invPanelVisible = false;
@@ -120,6 +151,7 @@
   /** 背包小圖（程式繪製快取） */
   let strawberrySeedIconDataUrl = "";
   let fernIconDataUrl = "";
+  let grapeIconDataUrl = "";
 
   const keys = {};
   const player = {
@@ -129,22 +161,68 @@
     speed: 180,
   };
 
-  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern', growLeft: number, mature: boolean, shootCd: number }[]} */
+  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape', growLeft: number, mature: boolean, shootCd: number }[]} */
   const plants = [];
 
-  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven', lane: number }[]} */
+  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly', lane: number }[]} */
   const mobs = [];
 
-  /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number }[]} */
+  /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number, src?: 'strawberry' | 'grape' }[]} */
   const projectiles = [];
 
   let spawnAcc = 0;
   let anyMaturePlant = false;
   let toastTimer = 0;
   let saveAcc = 0;
+  /** 成功收進背包的擊殺數（滿包不計），每 100 生成蜻蜓王 */
+  let defeatCount = 0;
 
   function isValidEnemyWorker(w) {
-    return w === "bee" || w === "butterfly" || w === "raven";
+    return (
+      w === "bee" ||
+      w === "butterfly" ||
+      w === "raven" ||
+      w === "beetle" ||
+      w === "dragonfly"
+    );
+  }
+
+  function countUnlockedLanes() {
+    let n = 0;
+    for (let c = 0; c < COLS; c++) if (laneUnlocked[c]) n++;
+    return n;
+  }
+
+  function getSpawnIntervalSec() {
+    const unlocked = countUnlockedLanes();
+    return Math.max(MIN_SPAWN_INTERVAL_SEC, SPAWN_INTERVAL_BASE - (unlocked - 1));
+  }
+
+  function trySpawnDragonflyBoss() {
+    const lane = pickRandomOpenLane();
+    if (lane < 0) {
+      showWarning("沒有已解鎖的種植道，蜻蜓王無法出現！");
+      return;
+    }
+    const cx = laneCenterX(lane);
+    const sy = spawnerRect.y - 8;
+    mobs.push({
+      x: cx,
+      y: sy,
+      hp: DRAGONFLY_HP,
+      speed: DRAGONFLY_SPEED,
+      type: "dragonfly",
+      lane,
+    });
+    showSuccess("蜻蜓王出現！紅身綠翅，請小心應對。");
+  }
+
+  function registerEnemyDefeatForBoss() {
+    defeatCount += 1;
+    while (defeatCount >= KILLS_PER_DRAGONFLY_BOSS) {
+      defeatCount -= KILLS_PER_DRAGONFLY_BOSS;
+      trySpawnDragonflyBoss();
+    }
   }
 
   function loadRedeemedCodesSet() {
@@ -198,10 +276,13 @@
         vy: pr.vy,
         dmg: pr.dmg,
         lane: pr.lane,
+        src: pr.src === "grape" ? "grape" : "strawberry",
       })),
       player: { x: player.x, y: player.y },
       spawnAcc,
       anyMaturePlant,
+      defeatCount,
+      shovelCount,
     };
   }
 
@@ -226,7 +307,7 @@
       if (Array.isArray(raw.plantInv) && raw.plantInv.length === PLANT_SLOTS) {
         for (let i = 0; i < PLANT_SLOTS; i++) {
           const t = raw.plantInv[i];
-          plantInv[i] = t === "seed" || t === "fern" ? t : null;
+          plantInv[i] = t === "seed" || t === "fern" || t === "grape" ? t : null;
         }
       }
 
@@ -241,7 +322,7 @@
       if (Array.isArray(raw.plants)) {
         for (const p of raw.plants) {
           if (!p || p.row < 0 || p.row >= ROWS || p.col < 0 || p.col >= COLS) continue;
-          const k = p.kind === "fern" ? "fern" : "strawberry";
+          const k = p.kind === "fern" ? "fern" : p.kind === "grape" ? "grape" : "strawberry";
           plants.push({
             row: p.row | 0,
             col: p.col | 0,
@@ -262,10 +343,18 @@
           let typ;
           let spd;
           let maxHp;
-          if (m.type === "raven") {
+          if (m.type === "dragonfly") {
+            typ = "dragonfly";
+            spd = DRAGONFLY_SPEED;
+            maxHp = DRAGONFLY_HP;
+          } else if (m.type === "raven") {
             typ = "raven";
             spd = RAVEN_SPEED;
             maxHp = RAVEN_HP;
+          } else if (m.type === "beetle") {
+            typ = "beetle";
+            spd = BEETLE_SPEED;
+            maxHp = BEETLE_HP;
           } else if (m.type === "butterfly") {
             typ = "butterfly";
             spd = 34;
@@ -302,6 +391,7 @@
             vy: isFinite(pr.vy) ? pr.vy : PROJ_SPEED,
             dmg: Math.max(1, Number(pr.dmg) || 1),
             lane,
+            src: pr.src === "grape" ? "grape" : "strawberry",
           });
         }
       }
@@ -315,6 +405,14 @@
       }
 
       if (typeof raw.spawnAcc === "number" && isFinite(raw.spawnAcc)) spawnAcc = Math.max(0, raw.spawnAcc);
+      if (typeof raw.shovelCount === "number" && isFinite(raw.shovelCount)) {
+        shovelCount = Math.max(0, Math.floor(raw.shovelCount));
+      }
+      if (typeof raw.defeatCount === "number" && isFinite(raw.defeatCount)) {
+        let dc = Math.floor(raw.defeatCount);
+        if (dc < 0) dc = 0;
+        defeatCount = dc % KILLS_PER_DRAGONFLY_BOSS;
+      }
       anyMaturePlant = plants.some((pl) => pl.mature);
       return true;
     } catch (e) {
@@ -370,6 +468,12 @@
     return enemyInv.filter((x) => x !== null).length;
   }
 
+  function growTotalForFieldKind(kind) {
+    if (kind === "fern") return GROW_TIME_FERN;
+    if (kind === "grape") return GROW_TIME_GRAPE;
+    return GROW_TIME_STRAWBERRY;
+  }
+
   function addPlantSeed() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
@@ -392,7 +496,18 @@
     return true;
   }
 
-  /** @param {'bee' | 'butterfly' | 'raven'} kind */
+  function addPlantGrape() {
+    const idx = plantInv.indexOf(null);
+    if (idx === -1) {
+      showWarning("植物背包已滿（10 格）！");
+      return false;
+    }
+    plantInv[idx] = "grape";
+    refreshInvUi();
+    return true;
+  }
+
+  /** @param {'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} kind */
   function addEnemyToInv(kind) {
     if (!isValidEnemyWorker(kind)) return false;
     const idx = enemyInv.indexOf(null);
@@ -408,14 +523,16 @@
   function sellPriceFor(kind) {
     if (kind === "butterfly") return SELL_BUTTERFLY_PRICE;
     if (kind === "raven") return SELL_RAVEN_PRICE;
+    if (kind === "beetle") return SELL_BEETLE_PRICE;
+    if (kind === "dragonfly") return SELL_DRAGONFLY_PRICE;
     return SELL_BEE_PRICE;
   }
 
-  /** @returns {null | 'seed' | 'fern'} */
+  /** @returns {null | 'seed' | 'fern' | 'grape'} */
   function takePlantItemForPlanting() {
     if (selectedPlantSlot >= 0) {
       const t = plantInv[selectedPlantSlot];
-      if (t === "seed" || t === "fern") {
+      if (t === "seed" || t === "fern" || t === "grape") {
         plantInv[selectedPlantSlot] = null;
         refreshInvUi();
         return t;
@@ -433,10 +550,16 @@
       refreshInvUi();
       return "fern";
     }
+    idx = plantInv.indexOf("grape");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "grape";
+    }
     return null;
   }
 
-  /** @returns {null | 'bee' | 'butterfly' | 'raven'} */
+  /** @returns {null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} */
   function takeEnemyForWorker() {
     if (selectedEnemySlot >= 0) {
       const t = enemyInv[selectedEnemySlot];
@@ -446,7 +569,7 @@
         return t;
       }
     }
-    for (const typ of ["bee", "butterfly", "raven"]) {
+    for (const typ of ["bee", "butterfly", "beetle", "dragonfly", "raven"]) {
       const idx = enemyInv.indexOf(typ);
       if (idx !== -1) {
         enemyInv[idx] = null;
@@ -465,6 +588,8 @@
     moneyEl.textContent = String(Math.floor(money * 100) / 100);
     plantCountEl.textContent = String(countPlantInv());
     enemyCountEl.textContent = String(countEnemyInv());
+    if (shovelStackCountEl) shovelStackCountEl.textContent = String(shovelCount);
+    if (shovelCount <= 0) selectedGear = null;
 
     const pSlots = plantSlotsEl.querySelectorAll(".inv-slot");
     pSlots.forEach((el, i) => {
@@ -505,6 +630,23 @@
           sp.title = "蕨類幼苗";
           el.appendChild(sp);
         }
+      } else if (plantInv[i] === "grape") {
+        const url = getGrapeIconDataUrl();
+        if (url) {
+          const m = document.createElement("img");
+          m.className = "icon-seed-img";
+          m.src = url;
+          m.alt = "葡萄苗";
+          m.title = "葡萄苗";
+          el.appendChild(m);
+        } else {
+          const sp = document.createElement("span");
+          sp.textContent = "葡";
+          sp.style.fontSize = "13px";
+          sp.style.color = "#e1bee7";
+          sp.title = "葡萄苗";
+          el.appendChild(sp);
+        }
       }
     });
 
@@ -528,8 +670,35 @@
         m.className = "icon-raven";
         m.title = "限定烏鴉";
         el.appendChild(m);
+      } else if (enemyInv[i] === "beetle") {
+        const m = document.createElement("span");
+        m.className = "icon-beetle";
+        m.title = "甲蟲";
+        el.appendChild(m);
+      } else if (enemyInv[i] === "dragonfly") {
+        const m = document.createElement("span");
+        m.className = "icon-dragonfly";
+        m.title = "蜻蜓王";
+        el.appendChild(m);
       }
     });
+
+    if (gearSlotsEl) {
+      const gearSlot = gearSlotsEl.querySelector("[data-gear='shovel']");
+      if (gearSlot) {
+        gearSlot.classList.toggle("filled", shovelCount > 0);
+        gearSlot.classList.toggle("selected-gear", selectedGear === "shovel" && shovelCount > 0);
+        gearSlot.innerHTML = "";
+        const icon = document.createElement("span");
+        icon.className = "icon-shovel";
+        gearSlot.appendChild(icon);
+        const badge = document.createElement("span");
+        badge.className = "gear-stack-count";
+        badge.textContent = "×" + shovelCount;
+        gearSlot.appendChild(badge);
+        gearSlot.title = "鏟子 ×" + shovelCount + "（點選後對植株按 E）";
+      }
+    }
   }
 
   function buildInvSlots() {
@@ -553,6 +722,7 @@
       if (!t || t.dataset.plantIdx === undefined) return;
       const i = Number(t.dataset.plantIdx);
       selectedPlantSlot = selectedPlantSlot === i ? -1 : i;
+      selectedGear = null;
       refreshInvUi();
     });
 
@@ -561,8 +731,29 @@
       if (!t || t.dataset.enemyIdx === undefined) return;
       const i = Number(t.dataset.enemyIdx);
       selectedEnemySlot = selectedEnemySlot === i ? -1 : i;
+      selectedGear = null;
       refreshInvUi();
     });
+
+    if (gearSlotsEl) {
+      gearSlotsEl.innerHTML = "";
+      const gd = document.createElement("div");
+      gd.className = "inv-slot gear-slot";
+      gd.dataset.gear = "shovel";
+      gearSlotsEl.appendChild(gd);
+      gearSlotsEl.addEventListener("click", (e) => {
+        const t = e.target.closest(".inv-slot");
+        if (!t || t.dataset.gear !== "shovel") return;
+        if (shovelCount <= 0) {
+          showWarning("沒有鏟子！到左下「道具店」購買。");
+          return;
+        }
+        selectedGear = selectedGear === "shovel" ? null : "shovel";
+        selectedPlantSlot = -1;
+        selectedEnemySlot = -1;
+        refreshInvUi();
+      });
+    }
   }
 
   function cellCenter(row, col) {
@@ -594,14 +785,19 @@
     return mobs.some((m) => m.lane === laneCol && m.y > plantCenterY - margin);
   }
 
-  function spawnDownProjectile(laneCol, startY) {
+  /** @param {{ dmg?: number, src?: 'strawberry' | 'grape' }} [opts] */
+  function spawnDownProjectile(laneCol, startY, opts) {
+    const o = opts || {};
+    const dmg = typeof o.dmg === "number" && o.dmg > 0 ? o.dmg : 1;
+    const src = o.src === "grape" ? "grape" : "strawberry";
     projectiles.push({
       x: laneCenterX(laneCol),
       y: startY,
       vx: 0,
       vy: PROJ_SPEED,
       lane: laneCol,
-      dmg: 1,
+      dmg,
+      src,
     });
   }
 
@@ -616,12 +812,14 @@
     settingsModal.classList.add("hidden");
     activeModal = mode;
     shopModal.classList.toggle("hidden", mode !== "buy");
+    if (gearModal) gearModal.classList.toggle("hidden", mode !== "gear");
     sellModal.classList.toggle("hidden", mode !== "sell");
   }
 
   function closeAllModals() {
     activeModal = null;
     shopModal.classList.add("hidden");
+    if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
     settingsModal.classList.add("hidden");
   }
@@ -629,6 +827,7 @@
   function openSettingsPanel() {
     activeModal = null;
     shopModal.classList.add("hidden");
+    if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
     settingsModal.classList.remove("hidden");
   }
@@ -685,11 +884,42 @@
     closeAllModals();
   });
 
+  if (btnBuyGrape) {
+    btnBuyGrape.addEventListener("click", () => {
+      if (money < GRAPE_COST) {
+        closeAllModals();
+        return;
+      }
+      if (!addPlantGrape()) {
+        closeAllModals();
+        return;
+      }
+      money -= GRAPE_COST;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
+
   btnClose.addEventListener("click", closeAllModals);
+
+  if (btnBuyShovel) {
+    btnBuyShovel.addEventListener("click", () => {
+      if (money < SHOVEL_COST) {
+        showWarning("金錢不足！鏟子需 $" + SHOVEL_COST);
+        closeAllModals();
+        return;
+      }
+      money -= SHOVEL_COST;
+      shovelCount += 1;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
+  if (btnCloseGear) btnCloseGear.addEventListener("click", closeAllModals);
 
   btnSellSelected.addEventListener("click", () => {
     if (selectedEnemySlot < 0 || !isValidEnemyWorker(enemyInv[selectedEnemySlot])) {
-      showWarning("請先在背包點選蜜蜂、蝴蝶或烏鴉！");
+      showWarning("請先在背包點選蜜蜂、蝴蝶、甲蟲、蜻蜓王或烏鴉！");
       return;
     }
     sellOneEnemyFromInv(true);
@@ -868,20 +1098,37 @@
         return;
       }
       const hasPlant = plants.some((p) => p.row === g.row && p.col === g.col);
-      if (!hasPlant) {
-        const item = takePlantItemForPlanting();
-        if (!item) {
-          if (plantInv.indexOf("seed") === -1 && plantInv.indexOf("fern") === -1) {
-            showWarning("沒有草莓苗或蕨類幼苗！");
+      if (hasPlant) {
+        if (selectedGear === "shovel" && shovelCount > 0) {
+          const pi = plants.findIndex((p) => p.row === g.row && p.col === g.col);
+          if (pi >= 0) {
+            plants.splice(pi, 1);
+            shovelCount--;
+            if (shovelCount <= 0) selectedGear = null;
+            anyMaturePlant = plants.some((pl) => pl.mature);
+            refreshInvUi();
           }
           return;
         }
-        const kind = item === "seed" ? "strawberry" : "fern";
+      }
+      if (!hasPlant) {
+        const item = takePlantItemForPlanting();
+        if (!item) {
+          if (
+            plantInv.indexOf("seed") === -1 &&
+            plantInv.indexOf("fern") === -1 &&
+            plantInv.indexOf("grape") === -1
+          ) {
+            showWarning("沒有可種植的苗（草莓／蕨／葡萄）！");
+          }
+          return;
+        }
+        const kind = item === "seed" ? "strawberry" : item === "fern" ? "fern" : "grape";
         plants.push({
           row: g.row,
           col: g.col,
           kind,
-          growLeft: GROW_TIME,
+          growLeft: growTotalForFieldKind(kind),
           mature: false,
           shootCd: 0,
         });
@@ -906,12 +1153,15 @@
 
   function update(dt) {
     const inBuy = rectsOverlap(player.x, player.y, player.r, shopRect.x, shopRect.y, shopRect.w, shopRect.h);
+    const inGearShop = rectsOverlap(player.x, player.y, player.r, gearShopRect.x, gearShopRect.y, gearShopRect.w, gearShopRect.h);
     const inSell = rectsOverlap(player.x, player.y, player.r, sellShopRect.x, sellShopRect.y, sellShopRect.w, sellShopRect.h);
     if (inBuy) {
       if (activeModal !== "buy") setActiveModal("buy");
+    } else if (inGearShop) {
+      if (activeModal !== "gear") setActiveModal("gear");
     } else if (inSell) {
       if (activeModal !== "sell") setActiveModal("sell");
-    } else if (activeModal === "buy" || activeModal === "sell") {
+    } else if (activeModal === "buy" || activeModal === "sell" || activeModal === "gear") {
       closeAllModals();
     }
 
@@ -932,7 +1182,17 @@
           const pc = cellCenter(p.row, p.col);
           const shootY = pc.y - 10;
           if (hasMobAheadInLane(p.col, pc.y)) {
-            spawnDownProjectile(p.col, shootY);
+            spawnDownProjectile(p.col, shootY, { src: "strawberry" });
+          }
+        }
+      } else if (p.kind === "grape") {
+        p.shootCd += dt;
+        if (p.shootCd >= GRAPE_SHOOT_INTERVAL) {
+          p.shootCd = 0;
+          const pc = cellCenter(p.row, p.col);
+          const shootY = pc.y - 10;
+          if (hasMobAheadInLane(p.col, pc.y)) {
+            spawnDownProjectile(p.col, shootY, { src: "grape", dmg: 1 });
           }
         }
       } else if (p.kind === "fern") {
@@ -944,7 +1204,7 @@
           if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE) continue;
           mob.hp -= FERN_DPS * dt;
           if (mob.hp <= 0) {
-            addEnemyToInv(mob.type);
+            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
             mobs.splice(j, 1);
           }
         }
@@ -954,8 +1214,9 @@
 
     if (anyMaturePlant) {
       spawnAcc += dt;
-      while (spawnAcc >= SPAWN_INTERVAL) {
-        spawnAcc -= SPAWN_INTERVAL;
+      const spawnEvery = getSpawnIntervalSec();
+      while (spawnAcc >= spawnEvery) {
+        spawnAcc -= spawnEvery;
         const kind = rollSpawnMob();
         const lane = pickRandomOpenLane();
         if (lane < 0) break;
@@ -979,6 +1240,15 @@
             type: "butterfly",
             lane,
           });
+        } else if (kind === "beetle") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: BEETLE_HP,
+            speed: BEETLE_SPEED,
+            type: "beetle",
+            lane,
+          });
         }
       }
     }
@@ -995,7 +1265,7 @@
           mob.hp -= pr.dmg;
           hit = true;
           if (mob.hp <= 0) {
-            addEnemyToInv(mob.type);
+            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
             mobs.splice(j, 1);
           }
           break;
@@ -1020,6 +1290,8 @@
       if (s.worker === "bee") income += BEE_DOLLAR_PER_SEC * dt;
       if (s.worker === "butterfly") income += BUTTERFLY_DOLLAR_PER_SEC * dt;
       if (s.worker === "raven") income += RAVEN_DOLLAR_PER_SEC * dt;
+      if (s.worker === "beetle") income += BEETLE_DOLLAR_PER_SEC * dt;
+      if (s.worker === "dragonfly") income += DRAGONFLY_DOLLAR_PER_SEC * dt;
     }
     if (income > 0) {
       money += income;
@@ -1043,6 +1315,42 @@
     const margin = 24;
     player.x = Math.max(margin, Math.min(canvas.width - margin, player.x));
     player.y = Math.max(margin, Math.min(canvas.height - margin, player.y));
+  }
+
+  /**
+   * 植物角色慣例：成熟株皆有大眼（白鞏膜＋瞳孔）。新植物請在角色繪製尾端呼叫此函式，參數比照既有植株。
+   * @param {CanvasRenderingContext2D} c
+   * @param {object} opt
+   * @param {number} opt.y — 雙眼中心連線的 y（已乘 scale 前的本地座標）
+   * @param {number} [opt.spread=4.5] — 單眼距離角色中心的水平半距
+   * @param {number} [opt.whiteR=3.2] — 眼白半徑
+   * @param {number} [opt.pupilR=1.3] — 瞳孔半徑
+   * @param {string} [opt.pupilColor='#1a1a1a']
+   * @param {number} [opt.pupilLX=0] [opt.pupilLY=0] [opt.pupilRX=0] [opt.pupilRY=0] — 瞳孔相對眼白的偏移（本地座標，未乘 scale 的係數會在內部乘 scale）
+   */
+  function drawCutePlantEyes(c, scale, opt) {
+    const s = scale;
+    const y = opt.y * s;
+    const spread = (opt.spread != null ? opt.spread : 4.5) * s;
+    const whiteR = (opt.whiteR != null ? opt.whiteR : 3.2) * s;
+    const pupilR = (opt.pupilR != null ? opt.pupilR : 1.3) * s;
+    const pc = opt.pupilColor || "#1a1a1a";
+    const plx = (opt.pupilLX || 0) * s;
+    const ply = (opt.pupilLY || 0) * s;
+    const prx = (opt.pupilRX || 0) * s;
+    const pry = (opt.pupilRY || 0) * s;
+
+    c.fillStyle = "#ffffff";
+    c.beginPath();
+    c.arc(-spread, y, whiteR, 0, Math.PI * 2);
+    c.arc(spread, y, whiteR, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = pc;
+    c.beginPath();
+    c.arc(-spread + plx, y + ply, pupilR, 0, Math.PI * 2);
+    c.arc(spread + prx, y + pry, pupilR, 0, Math.PI * 2);
+    c.fill();
   }
 
   /**
@@ -1093,19 +1401,17 @@
       c.fill();
     }
 
-    const eyeY = -3.4 * s;
-    const eyeR = 4.1 * s;
-    c.fillStyle = "#ffffff";
-    c.beginPath();
-    c.arc(-5.4 * s, eyeY, eyeR, 0, Math.PI * 2);
-    c.arc(5.4 * s, eyeY, eyeR, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = "#1a1a1a";
-    c.beginPath();
-    c.arc(-4.9 * s, eyeY + 0.35 * s, 1.75 * s, 0, Math.PI * 2);
-    c.arc(5.95 * s, eyeY - 0.45 * s, 1.75 * s, 0, Math.PI * 2);
-    c.fill();
+    drawCutePlantEyes(c, s, {
+      y: -3.4,
+      spread: 5.4,
+      whiteR: 4.1,
+      pupilR: 1.75,
+      pupilColor: "#1a1a1a",
+      pupilLX: 0.5,
+      pupilLY: 0.35,
+      pupilRX: 0.55,
+      pupilRY: -0.45,
+    });
 
     c.restore();
   }
@@ -1144,17 +1450,17 @@
       c.stroke();
     }
 
-    c.fillStyle = "#ffffff";
-    c.beginPath();
-    c.arc(-4.2 * s, -2.5 * s, 3.6 * s, 0, Math.PI * 2);
-    c.arc(4.2 * s, -2.5 * s, 3.6 * s, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = "#c62828";
-    c.beginPath();
-    c.arc(-3.6 * s, -2.2 * s, 1.45 * s, 0, Math.PI * 2);
-    c.arc(4.8 * s, -2.8 * s, 1.45 * s, 0, Math.PI * 2);
-    c.fill();
+    drawCutePlantEyes(c, s, {
+      y: -2.5,
+      spread: 4.2,
+      whiteR: 3.6,
+      pupilR: 1.45,
+      pupilColor: "#c62828",
+      pupilLX: 0.6,
+      pupilLY: 0.3,
+      pupilRX: 0.6,
+      pupilRY: -0.3,
+    });
 
     c.strokeStyle = "#1b5e20";
     c.lineWidth = 1.4 * s;
@@ -1174,6 +1480,71 @@
     c.lineTo(-3 * s, 15 * s);
     c.closePath();
     c.fill();
+
+    c.restore();
+  }
+
+  /** 藤、綠葉、紫葡萄串；成熟後朝同欄下方射出紫色子彈 */
+  function drawGrapeCharacter(c, cx, cy, scale) {
+    const s = scale;
+    c.save();
+    c.translate(cx, cy);
+
+    c.strokeStyle = "#4e342e";
+    c.lineWidth = 2.2 * s;
+    c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(0, 16 * s);
+    c.quadraticCurveTo(2 * s, 4 * s, 0, -10 * s);
+    c.stroke();
+
+    c.fillStyle = "#558b2f";
+    c.beginPath();
+    c.ellipse(-9 * s, 4 * s, 8 * s, 5 * s, -0.45, 0, Math.PI * 2);
+    c.ellipse(9 * s, 5 * s, 7 * s, 4.5 * s, 0.5, 0, Math.PI * 2);
+    c.ellipse(0, 8 * s, 6 * s, 3.5 * s, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#33691e";
+    c.lineWidth = 1 * s;
+    c.stroke();
+
+    const bunch = [
+      [0, -8],
+      [-3.5, -5],
+      [3.5, -5],
+      [0, -4],
+      [-4, -1.5],
+      [4, -1.5],
+      [-2, 1],
+      [2, 1],
+      [0, 3],
+    ];
+    for (let i = 0; i < bunch.length; i++) {
+      const [gx, gy] = bunch[i];
+      c.fillStyle = i % 2 === 0 ? "#6a1b9a" : "#7b1fa2";
+      c.beginPath();
+      c.arc(gx * s, gy * s, 3.4 * s, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = "#38006b";
+      c.lineWidth = 0.75 * s;
+      c.stroke();
+      c.fillStyle = "rgba(255,255,255,0.35)";
+      c.beginPath();
+      c.arc((gx - 0.9) * s, (gy - 0.9) * s, 1 * s, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    drawCutePlantEyes(c, s, {
+      y: -11.2,
+      spread: 4.35,
+      whiteR: 3.25,
+      pupilR: 1.35,
+      pupilColor: "#4a148c",
+      pupilLX: 0.4,
+      pupilLY: 0.25,
+      pupilRX: -0.3,
+      pupilRY: 0.2,
+    });
 
     c.restore();
   }
@@ -1212,13 +1583,36 @@
     return strawberrySeedIconDataUrl;
   }
 
+  function getGrapeIconDataUrl() {
+    if (grapeIconDataUrl) return grapeIconDataUrl;
+    try {
+      const ic = document.createElement("canvas");
+      ic.width = 40;
+      ic.height = 44;
+      const ictx = ic.getContext("2d");
+      if (!ictx) return "";
+      ictx.clearRect(0, 0, 40, 44);
+      drawGrapeCharacter(ictx, 20, 26, 0.88);
+      grapeIconDataUrl = ic.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
+    return grapeIconDataUrl;
+  }
+
   function drawProjectile(pr) {
-    const r = 7;
+    const r = pr.src === "grape" ? 6.5 : 7;
     ctx.beginPath();
     ctx.arc(pr.x, pr.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#d32f2f";
-    ctx.fill();
-    ctx.strokeStyle = "#b71c1c";
+    if (pr.src === "grape") {
+      ctx.fillStyle = "#8e24aa";
+      ctx.fill();
+      ctx.strokeStyle = "#4a148c";
+    } else {
+      ctx.fillStyle = "#d32f2f";
+      ctx.fill();
+      ctx.strokeStyle = "#b71c1c";
+    }
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -1348,6 +1742,192 @@
     ctx.restore();
   }
 
+  /** @param {{ x: number, y: number, hp: number }} b */
+  function drawBeetleWorld(b, showHp, worldScale) {
+    const x = b.x;
+    const y = b.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const wobble = Math.sin(performance.now() / 118) * 0.06;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(wobble);
+    ctx.scale(sc, sc);
+
+    ctx.strokeStyle = "#4e342e";
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < 3; i++) {
+      const ly = 5 + i * 3.2;
+      ctx.beginPath();
+      ctx.moveTo(-13, ly);
+      ctx.quadraticCurveTo(-17, ly + 2, -18, ly + 6);
+      ctx.moveTo(13, ly);
+      ctx.quadraticCurveTo(17, ly + 2, 18, ly + 6);
+      ctx.stroke();
+    }
+
+    const shell = ctx.createRadialGradient(-5, -1, 1, 2, 4, 17);
+    shell.addColorStop(0, "#81c784");
+    shell.addColorStop(0.35, "#388e3c");
+    shell.addColorStop(0.65, "#1b5e20");
+    shell.addColorStop(1, "#0d2818");
+    ctx.fillStyle = shell;
+    ctx.beginPath();
+    ctx.ellipse(0, 3, 14, 10.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1b3a1a";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(0, 13);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(-6, -1, 6.5, 4.5, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#263238";
+    ctx.beginPath();
+    ctx.ellipse(0, -9, 6.2, 5.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#102027";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3.5, -12);
+    ctx.lineTo(-7, -19);
+    ctx.moveTo(3.5, -12);
+    ctx.lineTo(7, -19);
+    ctx.stroke();
+    ctx.fillStyle = "#6d4c41";
+    ctx.beginPath();
+    ctx.arc(-7, -19, 1.2, 0, Math.PI * 2);
+    ctx.arc(7, -19, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.max(1, Math.ceil(b.hp))), 0, 3);
+    }
+
+    ctx.restore();
+  }
+
+  /** 蜻蜓王：紅身、綠翅、體型較大 */
+  /** @param {{ x: number, y: number, hp: number }} m */
+  function drawDragonflyWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1.18 : worldScale;
+    const flap = Math.sin(performance.now() / 62) * 0.11;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+
+    const wingG = ctx.createLinearGradient(-25, 0, -8, 5);
+    wingG.addColorStop(0, "rgba(129, 199, 132, 0.92)");
+    wingG.addColorStop(0.5, "rgba(56, 142, 60, 0.88)");
+    wingG.addColorStop(1, "rgba(27, 94, 32, 0.75)");
+    ctx.fillStyle = wingG;
+    ctx.beginPath();
+    ctx.ellipse(-24, -1 + flap * 7, 20, 12, -0.42 + flap * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = wingG;
+    ctx.beginPath();
+    ctx.ellipse(24, -1 + flap * 7, 20, 12, 0.42 - flap * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(46, 125, 50, 0.95)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(-24, -1 + flap * 7, 20, 12, -0.42 + flap * 0.12, 0, Math.PI * 2);
+    ctx.ellipse(24, -1 + flap * 7, 20, 12, 0.42 - flap * 0.12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(0,0,0,0.12)";
+    ctx.lineWidth = 0.7;
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 5; k++) {
+        ctx.beginPath();
+        ctx.moveTo(side * 10, -6 + k * 3);
+        ctx.lineTo(side * 22, 2 + k * 2.5 + flap * 5);
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath();
+    ctx.ellipse(0, -8, 9, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#8e0000";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = "#b71c1c";
+    for (let seg = 0; seg < 5; seg++) {
+      const ry = 2 + seg * 3.6;
+      const rw = 8 - seg * 0.65;
+      ctx.beginPath();
+      ctx.ellipse(0, ry, rw, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "#e53935";
+    ctx.beginPath();
+    ctx.arc(0, -16, 7.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#b71c1c";
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+
+    ctx.fillStyle = "#1b5e20";
+    ctx.beginPath();
+    ctx.ellipse(-4.5, -17, 3.2, 4.5, -0.25, 0, Math.PI * 2);
+    ctx.ellipse(4.5, -17, 3.2, 4.5, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.arc(-5.5, -18, 1.1, 0, Math.PI * 2);
+    ctx.arc(3.5, -18, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3, -20);
+    ctx.lineTo(-5, -26);
+    ctx.moveTo(3, -20);
+    ctx.lineTo(5, -26);
+    ctx.stroke();
+
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = 3;
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 22);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+  }
+
   /** @param {{ x: number, y: number, hp: number }} m */
   function drawRavenWorld(m, showHp, worldScale) {
     const x = m.x;
@@ -1464,8 +2044,10 @@
   }
 
   function drawMobWorld(m, showHp) {
-    if (m.type === "butterfly") drawButterflyWorld(m, showHp);
+    if (m.type === "dragonfly") drawDragonflyWorld(m, showHp, 1.18);
+    else if (m.type === "butterfly") drawButterflyWorld(m, showHp);
     else if (m.type === "raven") drawRavenWorld(m, showHp, 1.05);
+    else if (m.type === "beetle") drawBeetleWorld(m, showHp, 1);
     else drawBeeWorld(m, showHp);
   }
 
@@ -1499,8 +2081,9 @@
       const cy = GRID_Y + p.row * CELL + CELL / 2;
       const pk = p.kind || "strawberry";
       if (!p.mature) {
-        const t = 1 - p.growLeft / GROW_TIME;
-        ctx.fillStyle = pk === "fern" ? "#2e4a2e" : "#4a3728";
+        const total = growTotalForFieldKind(pk);
+        const t = Math.min(1, Math.max(0, 1 - p.growLeft / total));
+        ctx.fillStyle = pk === "fern" ? "#2e4a2e" : pk === "grape" ? "#4a148c" : "#4a3728";
         ctx.beginPath();
         ctx.arc(cx, cy - 4 + 8 * (1 - t), 6 + 4 * t, 0, Math.PI * 2);
         ctx.fill();
@@ -1510,6 +2093,8 @@
         ctx.fillText(Math.ceil(p.growLeft) + "s", cx, cy + 14);
       } else if (pk === "fern") {
         drawFernCharacter(ctx, cx, cy + 2, 0.78);
+      } else if (pk === "grape") {
+        drawGrapeCharacter(ctx, cx, cy + 2, 0.78);
       } else {
         drawStrawberryCharacter(ctx, cx, cy - 2, 1);
       }
@@ -1525,9 +2110,30 @@
     ctx.fillStyle = "#fff";
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("商店", shopRect.x + shopRect.w / 2, shopRect.y + 28);
-    ctx.font = "11px sans-serif";
-    ctx.fillText("$" + STRAWBERRY_COST, shopRect.x + shopRect.w / 2, shopRect.y + 48);
+    ctx.fillText("商店", shopRect.x + shopRect.w / 2, shopRect.y + 24);
+    ctx.font = "9px sans-serif";
+    ctx.fillText("苗 $" + STRAWBERRY_COST + " · 5s", shopRect.x + shopRect.w / 2, shopRect.y + 42);
+    ctx.fillText("蕨 $" + FERN_COST + " · 10s 近戰 2／s", shopRect.x + shopRect.w / 2, shopRect.y + 56);
+    ctx.fillText("葡 $" + GRAPE_COST + " · 15s 每0.3s1傷", shopRect.x + shopRect.w / 2, shopRect.y + 70);
+    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 84);
+  }
+
+  function drawGearShop() {
+    ctx.fillStyle = "#455a64";
+    ctx.fillRect(gearShopRect.x, gearShopRect.y, gearShopRect.w, gearShopRect.h);
+    ctx.strokeStyle = "#263238";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(gearShopRect.x, gearShopRect.y, gearShopRect.w, gearShopRect.h);
+    ctx.fillStyle = "#eceff1";
+    ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("道具店", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 22);
+    ctx.font = "10px sans-serif";
+    ctx.fillText("鏟 $" + SHOVEL_COST, gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 42);
+    ctx.fillStyle = "#b0bec5";
+    ctx.font = "9px sans-serif";
+    ctx.fillText("剷除植株", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 58);
+    ctx.fillText("靠近開選單", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 72);
   }
 
   function drawSellShop() {
@@ -1541,7 +2147,7 @@
     ctx.textAlign = "center";
     ctx.fillText("回收", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 30);
     ctx.font = "11px sans-serif";
-    ctx.fillText("蜜蜂／蝶／烏鴉", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 50);
+    ctx.fillText("蜂／蝶／蟲／蜻王／烏鴉", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 50);
   }
 
   function drawSpawner() {
@@ -1552,7 +2158,14 @@
     ctx.fillStyle = "#666";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("生成", spawnerRect.x + spawnerRect.w / 2, spawnerRect.y + spawnerRect.h / 2 + 4);
+    ctx.fillText("生成", spawnerRect.x + spawnerRect.w / 2, spawnerRect.y + spawnerRect.h / 2 - 1);
+    ctx.font = "9px sans-serif";
+    ctx.fillStyle = "#8bc34a";
+    ctx.fillText(
+      "~" + getSpawnIntervalSec().toFixed(1).replace(/\.0$/, "") + "s／隻",
+      spawnerRect.x + spawnerRect.w / 2,
+      spawnerRect.y + spawnerRect.h / 2 + 11
+    );
   }
 
   function drawGraySlots() {
@@ -1584,13 +2197,26 @@
           drawBeeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "bee" }, false);
         } else if (s.worker === "butterfly") {
           drawButterflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "butterfly" }, false);
+        } else if (s.worker === "beetle") {
+          drawBeetleWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "beetle" }, false, 0.62);
         } else if (s.worker === "raven") {
           drawRavenWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "raven" }, false, 0.5);
+        } else if (s.worker === "dragonfly") {
+          drawDragonflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "dragonfly" }, false, 0.38);
         }
         ctx.fillStyle = "#000";
         ctx.font = "bold 8px sans-serif";
         ctx.textAlign = "center";
-        const rateLabel = s.worker === "butterfly" ? "$2/s" : s.worker === "raven" ? "$10/s" : "$1/s";
+        const rateLabel =
+          s.worker === "dragonfly"
+            ? "$17/s"
+            : s.worker === "raven"
+              ? "$10/s"
+              : s.worker === "beetle"
+                ? "$4/s"
+                : s.worker === "butterfly"
+                  ? "$2/s"
+                  : "$1/s";
         ctx.fillText(rateLabel, s.x + s.w / 2, s.y + s.h - 2);
       }
     });
@@ -1615,7 +2241,7 @@
     ctx.font = "13px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(
-      "中央綠道起始解鎖 · 草莓直線射擊 · 蕨近戰同欄每秒 2 傷 · 商店可買蕨 $50",
+      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨近戰 · 左下道具店鏟子剷植物 · 解鎖道生成 −1 秒 · 百隻出蜻蜓王",
       GRID_X,
       GRID_Y - 92
     );
@@ -1643,6 +2269,7 @@
     for (const pr of projectiles) drawProjectile(pr);
     drawSpawner();
     drawShop();
+    drawGearShop();
     drawSellShop();
     for (const mob of mobs) drawMobWorld(mob);
     drawPlayer();
@@ -1651,6 +2278,9 @@
   }
 
   if (sellRavenPriceEl) sellRavenPriceEl.textContent = String(SELL_RAVEN_PRICE);
+  if (sellBeetlePriceEl) sellBeetlePriceEl.textContent = String(SELL_BEETLE_PRICE);
+  if (sellDragonflyPriceEl) sellDragonflyPriceEl.textContent = String(SELL_DRAGONFLY_PRICE);
+  if (shovelPriceEl) shovelPriceEl.textContent = String(SHOVEL_COST);
 
   buildInvSlots();
   loadGame();
