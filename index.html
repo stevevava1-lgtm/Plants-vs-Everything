@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fishing World</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="hud">
+    <div id="money-row">Cash $<span id="money">0</span> <span id="af-tokens-row" class="hidden">· AF tokens <span id="af-tokens">0</span></span></div>
+    <button type="button" id="btn-settings" aria-label="Settings">⚙</button>
+    <div id="hud-buttons">
+      <button type="button" id="btn-backpack">Backpack</button>
+      <button type="button" id="btn-bestiary">Bestiary</button>
+      <button type="button" id="btn-rods">Rods</button>
+    </div>
+    <div id="island-label"></div>
+    <div id="drown-warning" class="hidden"></div>
+    <div id="backpack-count"></div>
+    <div id="hint"><kbd>WASD</kbd> / <kbd>Arrows</kbd> move · <kbd>Space</kbd> cast · <kbd>LMB</kbd> minigame · hold <strong>Storm relic</strong> + <kbd>LMB</kbd> on game for storm · hold <strong>Titan relic</strong> + <kbd>LMB</kbd> on water to infect · <kbd>Esc</kbd> · <kbd>B</kbd> backpack · <kbd>O</kbd> bestiary · stands <kbd>E</kbd></div>
+  </div>
+  <div id="time-hud"></div>
+  <canvas id="game"></canvas>
+  <div id="rod-slot" title="Equipped rod"></div>
+  <div id="inventory-bar"></div>
+  <div id="backpack-panel" class="hidden">
+    <div class="backpack-header">Backpack <span id="backpack-used">0</span>/50</div>
+    <div class="backpack-subheader">Favorites <span id="favorites-used">0</span>/10</div>
+    <div id="favorites-grid" class="bp-grid"></div>
+    <div class="backpack-subheader">Items</div>
+    <div id="backpack-grid" class="bp-grid"></div>
+  </div>
+  <div id="bestiary-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Bestiary</h3>
+      <p class="bestiary-intro">Fish you have caught appear here.</p>
+      <div id="bestiary-content"></div>
+      <button type="button" id="bestiary-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="settings-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Settings</h3>
+      <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="settings">Settings</button>
+        <button type="button" class="tab-btn" data-tab="codes">Codes</button>
+      </div>
+      <div id="tab-settings" class="tab-content">
+        <p class="modal-desc">UI panels: use buttons or hotkeys.</p>
+      </div>
+      <div id="tab-codes" class="tab-content hidden">
+        <p class="modal-desc">Enter a code exactly (case-sensitive).</p>
+        <div class="code-row">
+          <input id="code-input" type="text" autocomplete="off" spellcheck="false" placeholder="Enter code" />
+          <button type="button" id="redeem-code-btn">Redeem</button>
+        </div>
+        <div id="code-message" class="code-message"></div>
+      </div>
+      <button type="button" id="settings-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="sell-panel" class="modal hidden">
+    <div class="modal-box">
+      <h3>Buyer's stall</h3>
+      <p class="modal-desc">Sell all fish in your inventory/backpack.</p>
+      <div id="sell-breakdown"></div>
+      <div class="modal-actions">
+        <button type="button" id="sell-all-btn">Sell all fish</button>
+        <button type="button" id="sell-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="destroy-panel" class="modal hidden">
+    <div class="modal-box">
+      <h3>Destroy garbage</h3>
+      <p class="modal-desc">Destroy all metal sheets and secret paper in your inventory/backpack/favorites.</p>
+      <div id="destroy-count"></div>
+      <div class="modal-actions">
+        <button type="button" id="destroy-all-btn">Destroy all junk</button>
+        <button type="button" id="destroy-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="illusion-enchant-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Illusion Enchanter</h3>
+      <p id="illusion-enchant-desc" class="modal-desc">Pay $500 for a random enchant, then choose a rod to bind it to.</p>
+      <div id="illusion-enchant-actions"></div>
+      <button type="button" id="illusion-enchant-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="ghost-crafter-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Ghost Crafter</h3>
+      <p class="modal-desc">Forges illusion relics. Storm Relic awakens a storm when crafted.</p>
+      <div id="ghost-crafter-recipes"></div>
+      <button type="button" id="ghost-crafter-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="relic-seller-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Relic Seller</h3>
+      <p class="modal-desc">The only buyer for Storm and Titan relics. Choose how many of each to sell.</p>
+      <p id="relic-seller-owned" class="modal-desc"></p>
+      <div class="modal-actions" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <label style="display: flex; justify-content: space-between; gap: 12px; align-items: center;">
+          <span>Storm relics</span>
+          <input type="number" id="relic-sell-storm-qty" min="0" value="0" style="width: 5rem;" />
+        </label>
+        <label style="display: flex; justify-content: space-between; gap: 12px; align-items: center;">
+          <span>Titan relics</span>
+          <input type="number" id="relic-sell-titan-qty" min="0" value="0" style="width: 5rem;" />
+        </label>
+      </div>
+      <p id="relic-sell-total-line" class="modal-desc">Total: $<span id="relic-sell-total">0</span></p>
+      <div class="modal-actions">
+        <button type="button" id="relic-sell-btn">Sell</button>
+        <button type="button" id="relic-seller-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="harbor-panel" class="modal hidden">
+    <div class="modal-box">
+      <h3>Harbor</h3>
+      <p class="modal-desc">Buy a boat to move faster on the water.</p>
+      <p id="boat-status"></p>
+      <div class="modal-actions">
+        <button type="button" id="buy-boat-btn">Buy boat ($50)</button>
+        <button type="button" id="harbor-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="shop-panel" class="modal hidden">
+    <div class="modal-box">
+      <h3 id="shop-panel-title">Tackle shop</h3>
+      <p id="shop-april-fools-banner" class="modal-desc hidden">April Fools Week — event island only. Island vanishes after the event.</p>
+      <ul id="shop-main-list" class="shop-list">
+        <li>
+          <span>Beginner rod</span>
+          <strong>$10</strong>
+          <button type="button" data-buy="beginnerRod">Buy</button>
+          <button type="button" data-equip="beginnerRod">Equip</button>
+        </li>
+        <li>
+          <span>Advanced rod</span>
+          <strong>$20</strong>
+          <button type="button" data-buy="advancedRod">Buy</button>
+          <button type="button" data-equip="advancedRod">Equip</button>
+        </li>
+        <li>
+          <span>Metal rod</span>
+          <strong>$50</strong>
+          <button type="button" data-buy="metalRod">Buy</button>
+          <button type="button" data-equip="metalRod">Equip</button>
+        </li>
+        <li id="forest-rod-row" class="hidden">
+          <span>Forest rod</span>
+          <strong>$300</strong>
+          <button type="button" data-buy="forestRod">Buy</button>
+          <button type="button" data-equip="forestRod">Equip</button>
+        </li>
+        <li>
+          <span>Speed rod</span>
+          <strong>$300</strong>
+          <button type="button" data-buy="speedRod">Buy</button>
+          <button type="button" data-equip="speedRod">Equip</button>
+        </li>
+      </ul>
+      <ul id="shop-april-fools-list" class="shop-list hidden">
+        <li>
+          <span>Testing rod (event)</span>
+          <strong>$1500</strong>
+          <button type="button" id="shop-af-buy-testing">Buy</button>
+          <button type="button" data-equip="testingRod">Equip</button>
+        </li>
+        <li>
+          <span>Liar rod</span>
+          <strong>20 AF tokens</strong>
+          <button type="button" id="shop-af-buy-liar">Buy</button>
+          <button type="button" data-equip="liarRod">Equip</button>
+        </li>
+      </ul>
+      <p id="shop-main-note" class="shop-note">Advanced rod: 20% bar width, −10% progress — fills the catch meter faster (0→100).</p>
+      <p id="shop-april-fools-note" class="shop-note hidden">Fish here during the event to earn April Fools tokens. Liar rod: 20% bar, +40% progress, always applies Fools mutation (1.5× sell).</p>
+      <button type="button" id="shop-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="crafting-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3 id="crafting-panel-title">Crafting</h3>
+      <p id="crafting-panel-desc" class="modal-desc">Want to craft some rods?</p>
+      <div id="crafting-content"></div>
+      <button type="button" id="crafting-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="rods-panel" class="modal hidden">
+    <div class="modal-box bestiary-box">
+      <h3>Rods</h3>
+      <div id="rods-content"></div>
+      <button type="button" id="rods-close-btn">Close</button>
+    </div>
+  </div>
+  <div id="fishing-panel" class="hidden">
+    <div id="hook-phase" class="hidden">
+      <div class="panel-title">Waiting for a bite…</div>
+      <div class="hook-bar-outer">
+        <div id="hook-fill"></div>
+      </div>
+    </div>
+    <div id="minigame-phase" class="hidden">
+      <div id="minigame-title" class="panel-title">Keep the fish in the box!</div>
+      <div id="catch-meter-outer">
+        <div id="catch-meter-fill"></div>
+      </div>
+      <div id="fish-track">
+        <div id="fish-zone"></div>
+        <canvas id="minnow-minigame" width="48" height="36"></canvas>
+      </div>
+    </div>
+  </div>
+  <div id="game-over" class="hidden">
+    <div class="go-box">
+      <h2>Drowned</h2>
+      <p>You stayed in the water too long.</p>
+      <p class="go-sub"><kbd>R</kbd> to restart</p>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>

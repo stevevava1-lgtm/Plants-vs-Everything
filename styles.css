@@ -1,0 +1,720 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #0a1628;
+  color: #e8f1ff;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: crosshair;
+}
+
+/* Full-viewport canvas can stack above fixed UI in some browsers; clicks must reach the backpack. */
+body.backpack-open #game {
+  pointer-events: none;
+}
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  pointer-events: none;
+  z-index: 2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+#btn-settings {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(80, 140, 200, 0.25);
+  color: #e8f1ff;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 6;
+  font-size: 1.05rem;
+}
+
+#btn-settings:hover {
+  background: rgba(100, 160, 220, 0.42);
+}
+
+#money-row {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #a5d6a7;
+  letter-spacing: 0.03em;
+}
+
+#af-tokens-row {
+  font-weight: 600;
+  color: #f48fb1;
+}
+
+#hud-buttons {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+#hud-buttons button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(80, 140, 200, 0.25);
+  color: #e8f1ff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+#hud-buttons button:hover {
+  background: rgba(100, 160, 220, 0.42);
+}
+
+#island-label {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+#drown-warning {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: #ff8a80;
+  font-weight: 600;
+}
+
+#drown-warning.hidden {
+  display: none;
+}
+
+#backpack-count {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+#hint {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+#hint kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#inventory-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(10, 22, 40, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  z-index: 3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+#time-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(10, 22, 40, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+#rod-slot {
+  position: fixed;
+  bottom: 16px;
+  left: calc(50% - 240px);
+  width: 58px;
+  height: 58px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(10, 22, 40, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#rod-slot canvas {
+  width: 42px;
+  height: 42px;
+  display: block;
+}
+
+.inv-slot {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  position: relative;
+}
+
+.inv-slot.has-item {
+  border-color: rgba(120, 200, 255, 0.45);
+}
+
+.inv-slot.selected {
+  outline: 2px solid #6ec8ff;
+  outline-offset: 2px;
+}
+
+.inv-slot .slot-num {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 0.65rem;
+  opacity: 0.55;
+}
+
+.inv-slot .inv-icon {
+  width: 36px;
+  height: 36px;
+}
+
+#fishing-panel {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, 92vw);
+  z-index: 4;
+}
+
+#fishing-panel.hidden {
+  display: none;
+}
+
+#hook-phase,
+#minigame-phase {
+  padding: 14px 16px;
+  background: rgba(10, 22, 40, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.panel-title {
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.hook-bar-outer {
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+#hook-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #3a9fd8, #6ec8ff);
+  transition: width 0.08s linear;
+}
+
+#catch-meter-outer {
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+#catch-meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #2ecc71, #58d68d);
+  transition: width 0.06s linear;
+}
+
+#fish-track {
+  position: relative;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(30, 70, 120, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+#fish-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20%;
+  left: 0%;
+  background: rgba(110, 200, 255, 0.22);
+  border-left: 2px solid rgba(180, 230, 255, 0.85);
+  border-right: 2px solid rgba(180, 230, 255, 0.85);
+  box-sizing: border-box;
+}
+
+#minnow-minigame {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  left: 50%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
+}
+
+#backpack-panel {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(480px, 96vw);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 12px;
+  background: rgba(10, 22, 40, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  z-index: 12;
+  pointer-events: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+#backpack-panel.hidden {
+  display: none;
+}
+
+
+.backpack-header {
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+}
+
+.backpack-subheader {
+  margin: 8px 0 6px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.bp-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(40px, 1fr));
+  gap: 6px;
+}
+
+.bp-slot {
+  min-width: 40px;
+  min-height: 40px;
+  touch-action: manipulation;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  box-sizing: border-box;
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.bp-slot canvas {
+  display: block;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+
+#game-over {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 20, 0.82);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-over.hidden {
+  display: none;
+}
+
+.go-box {
+  text-align: center;
+  padding: 28px 36px;
+  background: rgba(15, 28, 48, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  max-width: 360px;
+}
+
+.go-box h2 {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+}
+
+.go-box p {
+  margin: 8px 0;
+  opacity: 0.92;
+}
+
+.go-sub {
+  margin-top: 16px !important;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 12, 24, 0.72);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* Layering: keep Settings/Codes above Rods */
+#rods-panel {
+  z-index: 14;
+}
+
+#settings-panel {
+  z-index: 16;
+}
+
+#harbor-panel {
+  z-index: 15;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-box {
+  background: rgba(14, 26, 44, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 20px 22px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.modal-box h3 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.modal-desc {
+  margin: 0 0 8px;
+  opacity: 0.95;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.modal-actions button,
+#shop-close-btn,
+.shop-list button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(80, 140, 200, 0.35);
+  color: #e8f1ff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.modal-actions button:hover,
+#shop-close-btn:hover,
+.shop-list button:hover {
+  background: rgba(100, 160, 220, 0.5);
+}
+
+.shop-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+
+.shop-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+}
+
+.shop-list li strong {
+  color: #a5d6a7;
+  min-width: 3rem;
+}
+
+.shop-note {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin: 12px 0;
+  line-height: 1.45;
+}
+
+#crafting-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.recipe-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipe-row .recipe-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-row .recipe-req {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+#shop-close-btn {
+  margin-top: 8px;
+}
+
+.bestiary-box {
+  max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.bestiary-intro {
+  font-size: 0.85rem;
+  opacity: 0.88;
+  margin: 0 0 14px;
+}
+
+.bestiary-section {
+  margin-bottom: 18px;
+}
+
+.bestiary-shell {
+  display: flex;
+  gap: 12px;
+}
+
+.bestiary-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.bestiary-tab {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(80, 140, 200, 0.18);
+  color: #e8f1ff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.bestiary-tab:hover {
+  background: rgba(100, 160, 220, 0.28);
+}
+
+.bestiary-tab.active {
+  background: rgba(120, 190, 255, 0.28);
+  border-color: rgba(150, 220, 255, 0.28);
+}
+
+.bestiary-tab-event {
+  border-color: rgba(255, 112, 146, 0.45);
+  font-weight: 700;
+}
+
+.bestiary-event-intro {
+  font-size: 0.82rem;
+  opacity: 0.88;
+  margin: 0 0 12px;
+  line-height: 1.45;
+  color: rgba(230, 245, 255, 0.9);
+}
+
+.bestiary-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.bestiary-main h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #90caf9;
+}
+
+.bestiary-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #90caf9;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 4px;
+}
+
+.bestiary-fish {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+}
+
+.bestiary-fish.locked {
+  opacity: 0.45;
+  filter: grayscale(0.9);
+}
+
+.bestiary-fish canvas {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.fish-meta {
+  flex: 1;
+}
+
+.fish-meta .rarity {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+#sell-breakdown {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 10px 0 14px;
+  opacity: 0.95;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.tab-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8f1ff;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  outline: 2px solid rgba(110, 200, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+.code-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+#code-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8f1ff;
+  outline: none;
+}
+
+#code-input:focus {
+  border-color: rgba(110, 200, 255, 0.6);
+}
+
+.code-message {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.gold-text {
+  color: #ffd54f;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hidden {
+  display: none !important;
+}
