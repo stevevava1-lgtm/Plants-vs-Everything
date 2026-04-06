@@ -22,6 +22,8 @@
   const pineapplePriceEl = document.getElementById("pineapplePrice");
   const btnBuyAppleTree = document.getElementById("btnBuyAppleTree");
   const appleTreePriceEl = document.getElementById("appleTreePrice");
+  const btnBuyCoral = document.getElementById("btnBuyCoral");
+  const coralPriceEl = document.getElementById("coralPrice");
   const btnClose = document.getElementById("btnClose");
   const btnBuyShovel = document.getElementById("btnBuyShovel");
   const btnBuyReclaimer = document.getElementById("btnBuyReclaimer");
@@ -39,6 +41,10 @@
   const settingsModal = document.getElementById("settingsModal");
   const btnSettings = document.getElementById("btnSettings");
   const btnCloseSettings = document.getElementById("btnCloseSettings");
+  const enemyDexModal = document.getElementById("enemyDexModal");
+  const enemyDexGridEl = document.getElementById("enemyDexGrid");
+  const btnOpenEnemyDex = document.getElementById("btnOpenEnemyDex");
+  const btnCloseEnemyDex = document.getElementById("btnCloseEnemyDex");
   const btnWipeProgress = document.getElementById("btnWipeProgress");
   const codeInput = document.getElementById("codeInput");
   const btnRedeemCode = document.getElementById("btnRedeemCode");
@@ -46,6 +52,8 @@
   const btnUnlockSpawner = document.getElementById("btnUnlockSpawner");
   const btnSpawnerDefault = document.getElementById("btnSpawnerDefault");
   const btnSpawnerUpgrade = document.getElementById("btnSpawnerUpgrade");
+  const btnUnlockBeach = document.getElementById("btnUnlockBeach");
+  const btnSpawnerBeach = document.getElementById("btnSpawnerBeach");
   const btnCloseRebirth = document.getElementById("btnCloseRebirth");
   const sellRavenPriceEl = document.getElementById("sellRavenPrice");
   const sellBeetlePriceEl = document.getElementById("sellBeetlePrice");
@@ -60,13 +68,13 @@
   const ENEMY_SLOTS = 100;
   const SAVE_KEY = "plantsVsEverythingSaveV1";
   const REDEMPTION_CODES_KEY = "plantsVsEverythingRedeemedCodes";
-  /** 區分大小寫；兌換後取得 1 鳳梨苗 */
+  /** Case-sensitive; redeem for 1 pineapple seedling */
   const CODE_REWARD_PINEAPPLE = "HXO1";
-  /** 兌換後取得 1 巨型蕨苗（種下為 2× 體型與近戰傷害） */
+  /** Redeem for 1 mega fern seedling (2× size and melee damage when planted) */
   const CODE_REWARD_MEGA_FERN = "B154ERN";
-  /** 兌換後取得 1 巨型蘋果樹苗（種下即 2× 體型、2× 蘋果傷害） */
+  /** Redeem for 1 mega apple tree seedling (2× size and apple damage when planted) */
   const CODE_REWARD_APPLE_TREE_MEGA = "H6VY43";
-  /** 種植時一般苗有機率變為巨型（2× 繪製、2× 傷害；子彈外觀不變） */
+  /** Normal seedlings may roll mega on plant (2× draw and damage; projectile look unchanged) */
   const MEGA_PLANT_CHANCE = 0.05;
   const SAVE_INTERVAL_SEC = 2;
 
@@ -81,25 +89,34 @@
   const GROW_TIME_FERN = 10;
   const GROW_TIME_GRAPE = 15;
   const FERN_DPS = 2;
-  /** 葡萄：每發 1 傷，發射間隔（秒） */
+  /** Grape: 1 damage per shot, fire interval (seconds) */
   const GRAPE_SHOOT_INTERVAL = 0.3;
   const GRAPE_COST = 500;
   const PINEAPPLE_COST = 2000;
-  /** 鳳梨：成熟後同欄近戰，與蕨相同判定距離 */
+  /** Pineapple: melee in lane when mature, same range check as fern */
   const GROW_TIME_PINEAPPLE = 12;
   const PINEAPPLE_DPS = 15;
-  /** 蘋果樹：$5000，每秒 1 顆蘋果、每顆 15 傷 */
+  /** Apple tree: $5000, 1 apple per second, 15 damage each */
   const APPLE_TREE_COST = 5000;
   const GROW_TIME_APPLE_TREE = 18;
   const APPLE_TREE_SHOOT_INTERVAL = 1;
   const APPLE_TREE_DMG = 15;
+  /** Coral: buy only on ocean map; 30/s melee in ocean, 10/s out and grayed; 10s to recover when back */
+  const CORAL_COST = 5000;
+  const GROW_TIME_CORAL = 12;
+  const CORAL_DPS_FULL = 30;
+  const CORAL_DPS_WEAK = 10;
+  const CORAL_RECOVER_SEC = 10;
+  /** Ocean map: sea grass grows on empty green cells; retextured fern look */
+  const SEA_GRASS_GROW_TIME = 10;
+  const SEA_GRASS_DIE_OFF_TIME = 5;
   const SHOVEL_COST = 35;
   const RECLAIMER_COST = 100;
   const FAVORITE_SLOTS = 50;
-  /** 蕨類／鳳梨近戰：同欄、在植株前方（靠生成端）的距離內 */
+  /** Fern / pineapple melee: same lane, in front of plant toward spawn side */
   const FERN_MELEE_RANGE = 72;
   const SPAWN_INTERVAL_BASE = 7;
-  /** 每多解鎖一條種植道，生成間隔少 1 秒（中央起始道不扣） */
+  /** Each extra unlocked lane −1s spawn interval (center starter lane not counted) */
   const MIN_SPAWN_INTERVAL_SEC = 1.5;
   const KILLS_PER_DRAGONFLY_BOSS = 100;
   const BEE_HP = 3;
@@ -143,19 +160,61 @@
   const HAWK_SPEED = 22;
   const HAWK_DOLLAR_PER_SEC = 21;
   const SELL_HAWK_PRICE = 95;
-  /** 生成怪 5% 巨型：2× 繪製、灰格收入 2× */
+  /** 5% mega mobs: 2× draw, gray-slot income 2× */
   const MEGA_MOB_CHANCE = 0.05;
-  /** 轉生店：解鎖升級生成池 */
+  /** Rebirth shop: unlocks upgraded spawn pool */
   const SPAWNER_UPGRADE_COST_MONEY = 4000;
   const SPAWNER_UPGRADE_DRAGONFLIES = 3;
+  /** Beach rebirth: $100k + 3 hawks + 5 robins → beach map and ocean spawn table */
+  const BEACH_REBIRTH_COST_MONEY = 100000;
+  const BEACH_REBIRTH_HAWKS = 3;
+  const BEACH_REBIRTH_ROBINS = 5;
+  /** Beach table: weight ratio 1 : 1/3 : 1/7 : 1/10 : 1/50 (~mackerel 63% … eel 1.3%) */
+  const MOB_SPAWN_WEIGHTS_BEACH = [
+    { type: "mackerel", weight: 1050 },
+    { type: "clownfish", weight: 350 },
+    { type: "lionfish", weight: 150 },
+    { type: "lemon_shark", weight: 105 },
+    { type: "eel", weight: 21 },
+  ];
+  const MACKEREL_HP = 70;
+  const MACKEREL_SPEED = 32;
+  const MACKEREL_DOLLAR_PER_SEC = 17;
+  const SELL_MACKEREL_PRICE = 28;
+  const CLOWNFISH_HP = 120;
+  const CLOWNFISH_SPEED = 30;
+  const CLOWNFISH_DOLLAR_PER_SEC = 20;
+  const SELL_CLOWNFISH_PRICE = 44;
+  const LIONFISH_HP = 170;
+  const LIONFISH_SPEED = 28;
+  const LIONFISH_DOLLAR_PER_SEC = 21;
+  const SELL_LIONFISH_PRICE = 60;
+  const LEMON_SHARK_HP = 200;
+  const LEMON_SHARK_SPEED = 26;
+  const LEMON_SHARK_DOLLAR_PER_SEC = 23;
+  const SELL_LEMON_SHARK_PRICE = 76;
+  const EEL_HP = 250;
+  const EEL_SPEED = 24;
+  const EEL_DOLLAR_PER_SEC = 25;
+  const SELL_EEL_PRICE = 92;
+  const HAMMERHEAD_HP = 400;
+  const HAMMERHEAD_SPEED = 22;
+  const HAMMERHEAD_DOLLAR_PER_SEC = 33;
+  const SELL_HAMMERHEAD_PRICE = 118;
+  const GREAT_WHITE_HP = 1000;
+  const GREAT_WHITE_SPEED = 18;
+  const GREAT_WHITE_DOLLAR_PER_SEC = 100;
+  const SELL_GREAT_WHITE_PRICE = 360;
+  const KILLS_PER_HAMMERHEAD_BOSS = 100;
+  const KILLS_PER_GREAT_WHITE_BOSS = 1000;
 
-  /** 權重 3:2:1（蜜蜂:蝴蝶:甲蟲），甲蟲約 1/6 */
+  /** Weights 3:2:1 (bee:butterfly:beetle); beetle ~1/6 */
   const MOB_SPAWN_WEIGHTS = [
     { type: "bee", weight: 3 },
     { type: "butterfly", weight: 2 },
     { type: "beetle", weight: 1 },
   ];
-  /** 升級池：總權重 50，知更鳥 1／50；其餘維持原比例縮放 */
+  /** Upgrade pool: total weight 50, robin 1/50; others scaled proportionally */
   const MOB_SPAWN_WEIGHTS_UPGRADE = [
     { type: "lizard", weight: 32 },
     { type: "snake", weight: 12 },
@@ -163,13 +222,13 @@
     { type: "robin", weight: 1 },
   ];
 
-  /** 灰格 1 免費；格 2～10 對應 index 1～9 */
+  /** Gray slot 1 free; slots 2–10 map to indices 1–9 */
   const GRAY_SLOT_UNLOCK_PRICE = [0, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 30000];
 
-  /** 中央道（欄 3）免費；其餘六道由中往外：左 300/600/1200，右 2400/4800/9600 */
+  /** Center lane (col 3) free; six others outward from center: left 300/600/1200, right 2400/4800/9600 */
   const LANE_UNLOCK_PRICE = [300, 600, 1200, 0, 2400, 4800, 9600];
 
-  const shopRect = { x: 40, y: 208, w: 100, h: 172 };
+  const shopRect = { x: 40, y: 208, w: 100, h: 196 };
   const gearShopRect = { x: 40, y: 392, w: 100, h: 100 };
   const favoriteBoxRect = { x: 40, y: 496, w: 100, h: 72 };
   const sellShopRect = { x: 780, y: 220, w: 100, h: 140 };
@@ -178,7 +237,7 @@
     x: GRID_X + 4,
     y: GRID_Y + ROWS * CELL + 6,
     w: COLS * CELL - 8,
-    h: 58,
+    h: 72,
   };
 
   const graySlots = [];
@@ -201,10 +260,10 @@
     });
   }
 
-  /** 僅中央綠道（欄 3）起始解鎖 */
+  /** Only center green lane (col 3) starts unlocked */
   const laneUnlocked = [false, false, false, true, false, false, false];
 
-  /** @type {(null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega')[]} */
+  /** @type {(null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega' | 'coral' | 'coral_mega')[]} */
   const plantInv = new Array(PLANT_SLOTS).fill(null);
   /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk')[]} */
   const enemyInv = new Array(ENEMY_SLOTS).fill(null);
@@ -223,12 +282,13 @@
   let money = 20;
   let invPanelVisible = false;
 
-  /** 背包小圖（程式繪製快取） */
+  /** Backpack icons (procedurally drawn cache) */
   let strawberrySeedIconDataUrl = "";
   let fernIconDataUrl = "";
   let grapeIconDataUrl = "";
   let pineappleIconDataUrl = "";
   let appleTreeIconDataUrl = "";
+  let coralIconDataUrl = "";
 
   const keys = {};
   const player = {
@@ -238,8 +298,12 @@
     speed: 180,
   };
 
-  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple' | 'apple_tree', growLeft: number, mature: boolean, shootCd: number, mega?: boolean }[]} */
+  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple' | 'apple_tree' | 'coral', growLeft: number, mature: boolean, shootCd: number, mega?: boolean, coralR?: number, coralG?: number, coralB?: number, coralStressed?: boolean, coralRecoverLeft?: number }[]} */
   const plants = [];
+
+  /** @type {(null | { growAcc: number, mature?: boolean, dying?: boolean, dieLeft?: number })[][]} */
+  const seaGrassGrid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  let lastWasOceanMap = false;
 
   /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk', lane: number, mega?: boolean }[]} */
   const mobs = [];
@@ -251,12 +315,20 @@
   let anyMaturePlant = false;
   let toastTimer = 0;
   let saveAcc = 0;
-  /** 成功收進背包的擊殺數（滿包不計），每 100 生成蜻蜓王 */
+  /** Kills that entered inventory (full bag not counted); every 100 spawns dragonfly boss (non-ocean pool) */
   let defeatCount = 0;
-  /** 是否已付費解鎖升級生成表 */
+  /** Ocean pool kill total (monotonic; hammerhead every 100, great white every 1000, separate progress) */
+  let beachTotalKills = 0;
+  /** Paid unlock for upgraded spawn table */
   let spawnerUpgradeOwned = false;
-  /** 0＝預設池，1＝升級池（需已解鎖） */
+  /** Beach rebirth unlock (map + ocean pool) */
+  let beachRebirthOwned = false;
+  /** 0 = default pool, 1 = upgrade pool, 2 = beach ocean pool (needs beach unlock) */
   let activeSpawnTable = 0;
+
+  function isOceanMap() {
+    return activeSpawnTable === 2 && beachRebirthOwned;
+  }
 
   function isValidEnemyWorker(w) {
     return (
@@ -269,8 +341,146 @@
       w === "snake" ||
       w === "jay" ||
       w === "robin" ||
-      w === "hawk"
+      w === "hawk" ||
+      w === "mackerel" ||
+      w === "clownfish" ||
+      w === "lionfish" ||
+      w === "lemon_shark" ||
+      w === "eel" ||
+      w === "hammerhead" ||
+      w === "great_white"
     );
+  }
+
+  const ENEMY_DEX_ORDER = [
+    "bee",
+    "butterfly",
+    "beetle",
+    "raven",
+    "dragonfly",
+    "lizard",
+    "snake",
+    "jay",
+    "robin",
+    "hawk",
+    "mackerel",
+    "clownfish",
+    "lionfish",
+    "lemon_shark",
+    "eel",
+    "hammerhead",
+    "great_white",
+  ];
+
+  const ENEMY_DEX_NAMES = {
+    bee: "Bee",
+    butterfly: "Butterfly",
+    beetle: "Beetle",
+    raven: "Raven",
+    dragonfly: "Dragonfly",
+    lizard: "Lizard",
+    snake: "Snake",
+    jay: "Jay",
+    robin: "Robin",
+    hawk: "Hawk",
+    mackerel: "Mackerel",
+    clownfish: "Clownfish",
+    lionfish: "Lionfish",
+    lemon_shark: "Lemon shark",
+    eel: "Eel",
+    hammerhead: "Hammerhead",
+    great_white: "Great white",
+  };
+
+  /** @type {Record<string, boolean>} */
+  const enemyDexCollected = {};
+
+  function registerEnemyDex(kind) {
+    if (!isValidEnemyWorker(kind)) return;
+    enemyDexCollected[kind] = true;
+  }
+
+  function loadEnemyDexFromSave(arr) {
+    for (let i = 0; i < ENEMY_DEX_ORDER.length; i++) delete enemyDexCollected[ENEMY_DEX_ORDER[i]];
+    if (Array.isArray(arr)) {
+      arr.forEach((t) => {
+        if (typeof t === "string" && isValidEnemyWorker(t)) enemyDexCollected[t] = true;
+      });
+    }
+  }
+
+  function syncEnemyDexFromInventory() {
+    for (let i = 0; i < enemyInv.length; i++) {
+      if (isValidEnemyWorker(enemyInv[i])) registerEnemyDex(enemyInv[i]);
+    }
+    graySlots.forEach((s) => {
+      if (s.worker && isValidEnemyWorker(s.worker)) registerEnemyDex(s.worker);
+    });
+    for (let i = 0; i < favoriteBox.length; i++) {
+      const e = favoriteBox[i];
+      if (e && e.cat === "enemy" && isValidEnemyWorker(e.item)) registerEnemyDex(e.item);
+    }
+  }
+
+  function enemyDexIconClass(type) {
+    return "icon-" + type.replace(/_/g, "-");
+  }
+
+  function renderEnemyDex() {
+    if (!enemyDexGridEl) return;
+    enemyDexGridEl.innerHTML = "";
+    for (let i = 0; i < ENEMY_DEX_ORDER.length; i++) {
+      const type = ENEMY_DEX_ORDER[i];
+      const cell = document.createElement("div");
+      cell.className = "enemy-dex-cell";
+      cell.setAttribute("role", "listitem");
+      if (type === "raven") {
+        cell.classList.add("enemy-dex-raven");
+        const lim = document.createElement("div");
+        lim.className = "enemy-dex-limited-tag";
+        lim.textContent = "Limited";
+        cell.appendChild(lim);
+      }
+      const known = !!enemyDexCollected[type];
+      if (known) {
+        cell.classList.add("enemy-dex-known");
+        const wrap = document.createElement("div");
+        wrap.className = "enemy-dex-icon-wrap";
+        const icon = document.createElement("span");
+        icon.className = "enemy-dex-icon " + enemyDexIconClass(type);
+        icon.setAttribute("aria-hidden", "true");
+        wrap.appendChild(icon);
+        cell.appendChild(wrap);
+        const label = document.createElement("div");
+        label.className = "enemy-dex-label";
+        label.textContent = ENEMY_DEX_NAMES[type] || type;
+        cell.appendChild(label);
+      } else {
+        cell.classList.add("enemy-dex-unknown");
+        const q = document.createElement("div");
+        q.className = "enemy-dex-q";
+        q.textContent = "?";
+        q.setAttribute("aria-label", "Unknown");
+        cell.appendChild(q);
+        const label = document.createElement("div");
+        label.className = "enemy-dex-label";
+        label.textContent = "?";
+        cell.appendChild(label);
+      }
+      enemyDexGridEl.appendChild(cell);
+    }
+  }
+
+  function openEnemyDexModal() {
+    if (settingsModal) settingsModal.classList.add("hidden");
+    if (enemyDexModal) {
+      renderEnemyDex();
+      enemyDexModal.classList.remove("hidden");
+    }
+  }
+
+  function closeEnemyDexModal() {
+    if (enemyDexModal) enemyDexModal.classList.add("hidden");
   }
 
   function enemyMobDrawScale(m) {
@@ -288,6 +498,13 @@
     if (worker === "jay") return JAY_DOLLAR_PER_SEC;
     if (worker === "robin") return ROBIN_DOLLAR_PER_SEC;
     if (worker === "hawk") return HAWK_DOLLAR_PER_SEC;
+    if (worker === "mackerel") return MACKEREL_DOLLAR_PER_SEC;
+    if (worker === "clownfish") return CLOWNFISH_DOLLAR_PER_SEC;
+    if (worker === "lionfish") return LIONFISH_DOLLAR_PER_SEC;
+    if (worker === "lemon_shark") return LEMON_SHARK_DOLLAR_PER_SEC;
+    if (worker === "eel") return EEL_DOLLAR_PER_SEC;
+    if (worker === "hammerhead") return HAMMERHEAD_DOLLAR_PER_SEC;
+    if (worker === "great_white") return GREAT_WHITE_DOLLAR_PER_SEC;
     return 0;
   }
 
@@ -295,7 +512,7 @@
     return enemyInv.filter((x) => x === "dragonfly").length;
   }
 
-  /** @returns {boolean} 是否成功從背包移除 n 隻蜻蜓王 */
+  /** @returns {boolean} true if n dragonflies were removed from inventory */
   function consumeDragonfliesFromInv(n) {
     let left = n;
     for (let i = 0; i < enemyInv.length && left > 0; i++) {
@@ -308,7 +525,42 @@
     return left === 0;
   }
 
+  function countHawksInInv() {
+    return enemyInv.filter((x) => x === "hawk").length;
+  }
+
+  function countRobinsInInv() {
+    return enemyInv.filter((x) => x === "robin").length;
+  }
+
+  /** @returns {boolean} */
+  function consumeHawksFromInv(n) {
+    let left = n;
+    for (let i = 0; i < enemyInv.length && left > 0; i++) {
+      if (enemyInv[i] === "hawk") {
+        enemyInv[i] = null;
+        enemyInvMega[i] = false;
+        left--;
+      }
+    }
+    return left === 0;
+  }
+
+  /** @returns {boolean} */
+  function consumeRobinsFromInv(n) {
+    let left = n;
+    for (let i = 0; i < enemyInv.length && left > 0; i++) {
+      if (enemyInv[i] === "robin") {
+        enemyInv[i] = null;
+        enemyInvMega[i] = false;
+        left--;
+      }
+    }
+    return left === 0;
+  }
+
   function syncSpawnTableState() {
+    if (activeSpawnTable === 2 && !beachRebirthOwned) activeSpawnTable = 0;
     if (activeSpawnTable === 1 && !spawnerUpgradeOwned) activeSpawnTable = 0;
   }
 
@@ -326,7 +578,7 @@
     try {
       localStorage.setItem(REDEMPTION_CODES_KEY, JSON.stringify([...set]));
     } catch (e) {
-      /* 配額滿或私密模式 */
+      /* quota full or private mode */
     }
   }
 
@@ -346,7 +598,7 @@
   function trySpawnDragonflyBoss() {
     const lane = pickRandomOpenLane();
     if (lane < 0) {
-      showWarning("沒有已解鎖的種植道，蜻蜓王無法出現！");
+      showWarning("No unlocked lane — dragonfly boss cannot spawn.");
       return;
     }
     const cx = laneCenterX(lane);
@@ -361,13 +613,13 @@
       lane,
       mega,
     });
-    showSuccess("蜻蜓王出現！紅身綠翅，請小心應對。");
+    showSuccess("Dragonfly boss spawned!");
   }
 
   function trySpawnHawkBoss() {
     const lane = pickRandomOpenLane();
     if (lane < 0) {
-      showWarning("沒有已解鎖的種植道，鷹無法出現！");
+      showWarning("No unlocked lane — hawk cannot spawn.");
       return;
     }
     const cx = laneCenterX(lane);
@@ -382,11 +634,64 @@
       lane,
       mega,
     });
-    showSuccess("鷹出現！高空猛禽，請小心應對。");
+    showSuccess("Hawk spawned!");
+  }
+
+  function trySpawnHammerheadBoss() {
+    const lane = pickRandomOpenLane();
+    if (lane < 0) {
+      showWarning("No unlocked lane — hammerhead cannot spawn.");
+      return;
+    }
+    const cx = laneCenterX(lane);
+    const sy = spawnerRect.y - 8;
+    const mega = Math.random() < MEGA_MOB_CHANCE;
+    mobs.push({
+      x: cx,
+      y: sy,
+      hp: HAMMERHEAD_HP,
+      speed: HAMMERHEAD_SPEED,
+      type: "hammerhead",
+      lane,
+      mega,
+    });
+    showSuccess("Hammerhead spawned!");
+  }
+
+  function trySpawnGreatWhiteBoss() {
+    const lane = pickRandomOpenLane();
+    if (lane < 0) {
+      showWarning("No unlocked lane — great white cannot spawn.");
+      return;
+    }
+    const cx = laneCenterX(lane);
+    const sy = spawnerRect.y - 8;
+    const mega = Math.random() < MEGA_MOB_CHANCE;
+    mobs.push({
+      x: cx,
+      y: sy,
+      hp: GREAT_WHITE_HP,
+      speed: GREAT_WHITE_SPEED,
+      type: "great_white",
+      lane,
+      mega,
+    });
+    showSuccess("Great white shark spawned!");
   }
 
   function registerEnemyDefeatForBoss() {
+    syncSpawnTableState();
+    if (activeSpawnTable === 2 && beachRebirthOwned) {
+      beachTotalKills += 1;
+      if (beachTotalKills > 0 && beachTotalKills % KILLS_PER_GREAT_WHITE_BOSS === 0) {
+        trySpawnGreatWhiteBoss();
+      } else if (beachTotalKills > 0 && beachTotalKills % KILLS_PER_HAMMERHEAD_BOSS === 0) {
+        trySpawnHammerheadBoss();
+      }
+      return;
+    }
     defeatCount += 1;
+    syncSpawnTableState();
     while (defeatCount >= KILLS_PER_DRAGONFLY_BOSS) {
       defeatCount -= KILLS_PER_DRAGONFLY_BOSS;
       syncSpawnTableState();
@@ -408,15 +713,25 @@
       plantInv: plantInv.slice(),
       enemyInv: enemyInv.slice(),
       enemyInvMega: enemyInvMega.slice(),
-      plants: plants.map((p) => ({
-        row: p.row,
-        col: p.col,
-        kind: p.kind || "strawberry",
-        growLeft: p.growLeft,
-        mature: p.mature,
-        shootCd: p.shootCd,
-        mega: !!p.mega,
-      })),
+      plants: plants.map((p) => {
+        const o = {
+          row: p.row,
+          col: p.col,
+          kind: p.kind || "strawberry",
+          growLeft: p.growLeft,
+          mature: p.mature,
+          shootCd: p.shootCd,
+          mega: !!p.mega,
+        };
+        if (p.kind === "coral") {
+          o.coralR = typeof p.coralR === "number" ? p.coralR : 200;
+          o.coralG = typeof p.coralG === "number" ? p.coralG : 120;
+          o.coralB = typeof p.coralB === "number" ? p.coralB : 160;
+          o.coralStressed = !!p.coralStressed;
+          o.coralRecoverLeft = Math.max(0, typeof p.coralRecoverLeft === "number" ? p.coralRecoverLeft : 0);
+        }
+        return o;
+      }),
       mobs: mobs.map((m) => ({
         x: m.x,
         y: m.y,
@@ -439,13 +754,29 @@
       spawnAcc,
       anyMaturePlant,
       defeatCount,
+      beachTotalKills,
       shovelCount,
       reclaimerCount,
       favorites: favoriteBox.map((e) =>
         e ? { cat: e.cat, item: e.item, mega: e.cat === "enemy" && e.mega ? true : undefined } : null
       ),
       spawnerUpgradeOwned,
-      activeSpawnTable,
+      beachRebirthOwned,
+      activeSpawnTable:
+        activeSpawnTable === 2 ? 2 : activeSpawnTable === 1 ? 1 : 0,
+      seaGrass: seaGrassGrid.map((row) =>
+        row.map((cell) =>
+          cell
+            ? {
+                growAcc: cell.growAcc,
+                mature: !!cell.mature,
+                dying: !!cell.dying,
+                dieLeft: typeof cell.dieLeft === "number" ? cell.dieLeft : 0,
+              }
+            : null
+        )
+      ),
+      enemyDex: ENEMY_DEX_ORDER.filter((t) => enemyDexCollected[t]),
     };
   }
 
@@ -478,7 +809,9 @@
             t === "grape" ||
             t === "pineapple" ||
             t === "apple_tree" ||
-            t === "apple_tree_mega"
+            t === "apple_tree_mega" ||
+            t === "coral" ||
+            t === "coral_mega"
               ? t
               : null;
         }
@@ -511,8 +844,10 @@
                   ? "pineapple"
                   : p.kind === "apple_tree"
                     ? "apple_tree"
-                    : "strawberry";
-          plants.push({
+                    : p.kind === "coral"
+                      ? "coral"
+                      : "strawberry";
+          const pl = {
             row: p.row | 0,
             col: p.col | 0,
             kind: k,
@@ -520,7 +855,15 @@
             mature: !!p.mature,
             shootCd: Math.max(0, Number(p.shootCd) || 0),
             mega: !!p.mega,
-          });
+          };
+          if (k === "coral") {
+            pl.coralR = Math.min(255, Math.max(0, Number(p.coralR) || 200));
+            pl.coralG = Math.min(255, Math.max(0, Number(p.coralG) || 120));
+            pl.coralB = Math.min(255, Math.max(0, Number(p.coralB) || 160));
+            pl.coralStressed = !!p.coralStressed;
+            pl.coralRecoverLeft = Math.max(0, typeof p.coralRecoverLeft === "number" ? p.coralRecoverLeft : CORAL_RECOVER_SEC);
+          }
+          plants.push(pl);
         }
       }
 
@@ -565,6 +908,34 @@
             typ = "hawk";
             spd = HAWK_SPEED;
             maxHp = HAWK_HP;
+          } else if (m.type === "mackerel") {
+            typ = "mackerel";
+            spd = MACKEREL_SPEED;
+            maxHp = MACKEREL_HP;
+          } else if (m.type === "clownfish") {
+            typ = "clownfish";
+            spd = CLOWNFISH_SPEED;
+            maxHp = CLOWNFISH_HP;
+          } else if (m.type === "lionfish") {
+            typ = "lionfish";
+            spd = LIONFISH_SPEED;
+            maxHp = LIONFISH_HP;
+          } else if (m.type === "lemon_shark") {
+            typ = "lemon_shark";
+            spd = LEMON_SHARK_SPEED;
+            maxHp = LEMON_SHARK_HP;
+          } else if (m.type === "eel") {
+            typ = "eel";
+            spd = EEL_SPEED;
+            maxHp = EEL_HP;
+          } else if (m.type === "hammerhead") {
+            typ = "hammerhead";
+            spd = HAMMERHEAD_SPEED;
+            maxHp = HAMMERHEAD_HP;
+          } else if (m.type === "great_white") {
+            typ = "great_white";
+            spd = GREAT_WHITE_SPEED;
+            maxHp = GREAT_WHITE_HP;
           } else if (m.type === "butterfly") {
             typ = "butterfly";
             spd = 34;
@@ -634,15 +1005,65 @@
           favoriteBox[i] = mega ? { cat: e.cat, item: e.item, mega } : { cat: e.cat, item: e.item };
         }
       }
+      if (typeof raw.spawnerUpgradeOwned === "boolean") spawnerUpgradeOwned = raw.spawnerUpgradeOwned;
+      if (typeof raw.beachRebirthOwned === "boolean") beachRebirthOwned = raw.beachRebirthOwned;
+      if (typeof raw.activeSpawnTable === "number") {
+        if (raw.activeSpawnTable === 2) activeSpawnTable = 2;
+        else if (raw.activeSpawnTable === 1) activeSpawnTable = 1;
+        else activeSpawnTable = 0;
+      }
+      syncSpawnTableState();
+      for (const pl of plants) {
+        if (pl.kind !== "coral" || !pl.mature) continue;
+        if (typeof pl.coralR !== "number" || typeof pl.coralG !== "number" || typeof pl.coralB !== "number") {
+          const rgb = rollCoralOceanRgb();
+          pl.coralR = rgb.r;
+          pl.coralG = rgb.g;
+          pl.coralB = rgb.b;
+        }
+        const ocean = isOceanMap();
+        if (typeof pl.coralStressed !== "boolean") {
+          pl.coralStressed = !ocean;
+        }
+        if (typeof pl.coralRecoverLeft !== "number") {
+          pl.coralRecoverLeft = pl.coralStressed && ocean ? CORAL_RECOVER_SEC : 0;
+        }
+      }
+      if (typeof raw.beachTotalKills === "number" && isFinite(raw.beachTotalKills)) {
+        beachTotalKills = Math.max(0, Math.floor(raw.beachTotalKills));
+      } else {
+        beachTotalKills = 0;
+      }
       if (typeof raw.defeatCount === "number" && isFinite(raw.defeatCount)) {
         let dc = Math.floor(raw.defeatCount);
         if (dc < 0) dc = 0;
-        defeatCount = dc % KILLS_PER_DRAGONFLY_BOSS;
+        if (beachRebirthOwned && activeSpawnTable === 2) {
+          defeatCount = dc;
+          if (typeof raw.beachTotalKills !== "number") beachTotalKills = dc;
+        } else defeatCount = dc % KILLS_PER_DRAGONFLY_BOSS;
       }
-      if (typeof raw.spawnerUpgradeOwned === "boolean") spawnerUpgradeOwned = raw.spawnerUpgradeOwned;
-      if (typeof raw.activeSpawnTable === "number") activeSpawnTable = raw.activeSpawnTable === 1 ? 1 : 0;
-      syncSpawnTableState();
+      if (Array.isArray(raw.seaGrass) && raw.seaGrass.length === ROWS) {
+        for (let r = 0; r < ROWS; r++) {
+          if (!Array.isArray(raw.seaGrass[r])) continue;
+          for (let c = 0; c < COLS; c++) {
+            const rawCell = raw.seaGrass[r][c];
+            if (!rawCell) {
+              seaGrassGrid[r][c] = null;
+              continue;
+            }
+            seaGrassGrid[r][c] = {
+              growAcc: Math.max(0, Number(rawCell.growAcc) || 0),
+              mature: !!rawCell.mature,
+              dying: !!rawCell.dying,
+              dieLeft:
+                typeof rawCell.dieLeft === "number" && rawCell.dieLeft > 0 ? rawCell.dieLeft : undefined,
+            };
+          }
+        }
+      }
       anyMaturePlant = plants.some((pl) => pl.mature);
+      loadEnemyDexFromSave(Array.isArray(raw.enemyDex) ? raw.enemyDex : []);
+      syncEnemyDexFromInventory();
       return true;
     } catch (e) {
       return false;
@@ -653,7 +1074,7 @@
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(getSavePayload()));
     } catch (e) {
-      /* 配額滿或私密模式 */
+      /* quota full or private mode */
     }
   }
 
@@ -663,7 +1084,7 @@
       if (!s) return;
       applySavePayload(JSON.parse(s));
     } catch (e) {
-      /* 無存檔或損毀 */
+      /* no save or corrupt */
     }
   }
 
@@ -702,6 +1123,7 @@
     if (kind === "grape") return GROW_TIME_GRAPE;
     if (kind === "pineapple") return GROW_TIME_PINEAPPLE;
     if (kind === "apple_tree") return GROW_TIME_APPLE_TREE;
+    if (kind === "coral") return GROW_TIME_CORAL;
     return GROW_TIME_STRAWBERRY;
   }
 
@@ -716,7 +1138,7 @@
   function addPlantSeed() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "seed";
@@ -727,7 +1149,7 @@
   function addPlantFern() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "fern";
@@ -738,7 +1160,7 @@
   function addPlantGrape() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "grape";
@@ -749,7 +1171,7 @@
   function addPlantPineapple() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "pineapple";
@@ -760,12 +1182,30 @@
   function addPlantAppleTree() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "apple_tree";
     refreshInvUi();
     return true;
+  }
+
+  function addPlantCoral() {
+    const idx = plantInv.indexOf(null);
+    if (idx === -1) {
+      showWarning("Plant bag full (10 slots).");
+      return false;
+    }
+    plantInv[idx] = "coral";
+    refreshInvUi();
+    return true;
+  }
+
+  function syncShopCoralButton() {
+    if (!btnBuyCoral) return;
+    const ok = isOceanMap();
+    btnBuyCoral.disabled = !ok;
+    btnBuyCoral.title = ok ? "Buy coral (ocean map only)" : "Ocean map (beach pool) only";
   }
 
   function plantBackpackHasSpace() {
@@ -780,7 +1220,9 @@
       t === "grape" ||
       t === "pineapple" ||
       t === "apple_tree" ||
-      t === "apple_tree_mega"
+      t === "apple_tree_mega" ||
+      t === "coral" ||
+      t === "coral_mega"
     );
   }
 
@@ -794,7 +1236,7 @@
     return false;
   }
 
-  /** 將田上植株還原為背包種子類型（巨型蕨 → fern_mega） */
+  /** Map field plant back to backpack seed type (mega fern → fern_mega) */
   function plantToSeedItem(p) {
     const k = p.kind || "strawberry";
     if (k === "strawberry") return "seed";
@@ -802,10 +1244,11 @@
     if (k === "grape") return "grape";
     if (k === "pineapple") return "pineapple";
     if (k === "apple_tree") return p.mega ? "apple_tree_mega" : "apple_tree";
+    if (k === "coral") return p.mega ? "coral_mega" : "coral";
     return "seed";
   }
 
-  /** @returns {boolean} 是否成功放入（不呼叫 refreshInvUi） */
+  /** @returns {boolean} true if added (does not call refreshInvUi) */
   function tryAddToPlantInv(item) {
     const ix = plantInv.indexOf(null);
     if (ix === -1) return false;
@@ -816,7 +1259,7 @@
   function addPlantFernMega() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "fern_mega";
@@ -827,7 +1270,7 @@
   function addPlantAppleTreeMega() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
-      showWarning("植物背包已滿（10 格）！");
+      showWarning("Plant bag full (10 slots).");
       return false;
     }
     plantInv[idx] = "apple_tree_mega";
@@ -841,11 +1284,12 @@
     if (!isValidEnemyWorker(kind)) return false;
     const idx = enemyInv.indexOf(null);
     if (idx === -1) {
-      showWarning("敵人背包已滿（100 格）！");
+      showWarning("Enemy bag full (100 slots).");
       return false;
     }
     enemyInv[idx] = kind;
     enemyInvMega[idx] = !!mega;
+    registerEnemyDex(kind);
     refreshInvUi();
     return true;
   }
@@ -861,10 +1305,17 @@
     else if (kind === "jay") base = SELL_JAY_PRICE;
     else if (kind === "robin") base = SELL_ROBIN_PRICE;
     else if (kind === "hawk") base = SELL_HAWK_PRICE;
+    else if (kind === "mackerel") base = SELL_MACKEREL_PRICE;
+    else if (kind === "clownfish") base = SELL_CLOWNFISH_PRICE;
+    else if (kind === "lionfish") base = SELL_LIONFISH_PRICE;
+    else if (kind === "lemon_shark") base = SELL_LEMON_SHARK_PRICE;
+    else if (kind === "eel") base = SELL_EEL_PRICE;
+    else if (kind === "hammerhead") base = SELL_HAMMERHEAD_PRICE;
+    else if (kind === "great_white") base = SELL_GREAT_WHITE_PRICE;
     return mega ? base * 2 : base;
   }
 
-  /** @returns {null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega'} */
+  /** @returns {null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega' | 'coral' | 'coral_mega'} */
   function takePlantItemForPlanting() {
     if (selectedPlantSlot >= 0) {
       const t = plantInv[selectedPlantSlot];
@@ -875,7 +1326,9 @@
         t === "grape" ||
         t === "pineapple" ||
         t === "apple_tree" ||
-        t === "apple_tree_mega"
+        t === "apple_tree_mega" ||
+        t === "coral" ||
+        t === "coral_mega"
       ) {
         plantInv[selectedPlantSlot] = null;
         refreshInvUi();
@@ -918,6 +1371,18 @@
       refreshInvUi();
       return "apple_tree_mega";
     }
+    idx = plantInv.indexOf("coral");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "coral";
+    }
+    idx = plantInv.indexOf("coral_mega");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "coral_mega";
+    }
     idx = plantInv.indexOf("fern_mega");
     if (idx !== -1) {
       plantInv[idx] = null;
@@ -939,7 +1404,25 @@
         return { type: t, mega };
       }
     }
-    for (const typ of ["bee", "butterfly", "beetle", "lizard", "snake", "jay", "robin", "hawk", "dragonfly", "raven"]) {
+    for (const typ of [
+      "bee",
+      "butterfly",
+      "beetle",
+      "lizard",
+      "snake",
+      "jay",
+      "robin",
+      "hawk",
+      "mackerel",
+      "clownfish",
+      "lionfish",
+      "lemon_shark",
+      "eel",
+      "hammerhead",
+      "great_white",
+      "dragonfly",
+      "raven",
+    ]) {
       const idx = enemyInv.indexOf(typ);
       if (idx !== -1) {
         const mega = enemyInvMega[idx];
@@ -970,7 +1453,10 @@
     pSlots.forEach((el, i) => {
       el.classList.toggle("filled", plantInv[i] !== null);
       el.classList.toggle("selected-plant", i === selectedPlantSlot);
-      el.classList.toggle("inv-slot-mega", plantInv[i] === "fern_mega" || plantInv[i] === "apple_tree_mega");
+      el.classList.toggle(
+        "inv-slot-mega",
+        plantInv[i] === "fern_mega" || plantInv[i] === "apple_tree_mega" || plantInv[i] === "coral_mega"
+      );
       el.innerHTML = "";
       if (plantInv[i] === "seed") {
         const url = getStrawberrySeedIconDataUrl();
@@ -978,15 +1464,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "草莓苗";
-          m.title = "草莓苗";
+          m.alt = "Strawberry seed";
+          m.title = "Strawberry seed";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "苗";
+          sp.textContent = "Sb";
           sp.style.fontSize = "14px";
           sp.style.color = "#ffcdd2";
-          sp.title = "草莓苗";
+          sp.title = "Strawberry seed";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "fern") {
@@ -995,15 +1481,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "蕨苗";
-          m.title = "蕨類幼苗";
+          m.alt = "Fern seed";
+          m.title = "Fern seed";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "蕨";
+          sp.textContent = "Fn";
           sp.style.fontSize = "13px";
           sp.style.color = "#a5d6a7";
-          sp.title = "蕨類幼苗";
+          sp.title = "Fern seed";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "fern_mega") {
@@ -1012,15 +1498,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "2× 蕨種子";
-          m.title = "2× 體型蕨種子（兌換）：種下即巨型蕨（2× 體型、2× 近戰傷害）";
+          m.alt = "2× fern seed";
+          m.title = "2× fern (redeem): mega fern when planted";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "蕨+";
+          sp.textContent = "Fn+";
           sp.style.fontSize = "12px";
           sp.style.color = "#fff59d";
-          sp.title = "2× 體型蕨種子（兌換）";
+          sp.title = "2× fern (redeem)";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "grape") {
@@ -1029,15 +1515,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "葡萄苗";
-          m.title = "葡萄苗";
+          m.alt = "Grape seed";
+          m.title = "Grape seed";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "葡";
+          sp.textContent = "Gp";
           sp.style.fontSize = "13px";
           sp.style.color = "#e1bee7";
-          sp.title = "葡萄苗";
+          sp.title = "Grape seed";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "pineapple") {
@@ -1046,15 +1532,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "鳳梨苗";
-          m.title = "鳳梨苗（近戰 15／秒）";
+          m.alt = "Pineapple seed";
+          m.title = "Pineapple (melee 15/s)";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "鳳";
+          sp.textContent = "Pn";
           sp.style.fontSize = "13px";
           sp.style.color = "#ffe082";
-          sp.title = "鳳梨苗";
+          sp.title = "Pineapple seed";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "apple_tree") {
@@ -1063,15 +1549,15 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "蘋果樹苗";
-          m.title = "蘋果樹苗（每秒 1 顆蘋果，15 傷害）";
+          m.alt = "Apple tree seed";
+          m.title = "Apple tree (1 apple/s, 15 dmg)";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "蘋";
+          sp.textContent = "Ap";
           sp.style.fontSize = "12px";
           sp.style.color = "#c8e6c9";
-          sp.title = "蘋果樹苗";
+          sp.title = "Apple tree seed";
           el.appendChild(sp);
         }
       } else if (plantInv[i] === "apple_tree_mega") {
@@ -1080,15 +1566,33 @@
           const m = document.createElement("img");
           m.className = "icon-seed-img";
           m.src = url;
-          m.alt = "2× 蘋果樹苗";
-          m.title = "2× 體型蘋果樹苗（兌換）：種下即巨型（2× 體型、2× 蘋果傷害）";
+          m.alt = "2× apple tree";
+          m.title = "2× apple tree (redeem): mega when planted";
           el.appendChild(m);
         } else {
           const sp = document.createElement("span");
-          sp.textContent = "蘋+";
+          sp.textContent = "Ap+";
           sp.style.fontSize = "11px";
           sp.style.color = "#fff59d";
-          sp.title = "2× 體型蘋果樹苗（兌換）";
+          sp.title = "2× apple tree (redeem)";
+          el.appendChild(sp);
+        }
+      } else if (plantInv[i] === "coral" || plantInv[i] === "coral_mega") {
+        const url = getCoralIconDataUrl();
+        if (url) {
+          const m = document.createElement("img");
+          m.className = "icon-seed-img";
+          m.src = url;
+          m.alt = plantInv[i] === "coral_mega" ? "2× coral seed" : "Coral seed";
+          m.title =
+            plantInv[i] === "coral_mega"
+              ? "Mega coral (2× melee)"
+              : "Coral (melee 30/s on ocean map)";
+          el.appendChild(m);
+        } else {
+          const sp = document.createElement("span");
+          sp.className = "icon-coral";
+          sp.title = plantInv[i] === "coral_mega" ? "Mega coral seed" : "Coral seed";
           el.appendChild(sp);
         }
       }
@@ -1101,56 +1605,91 @@
       el.classList.toggle("inv-slot-mega", !!enemyInvMega[i] && enemyInv[i] !== null);
       el.innerHTML = "";
       const em = enemyInvMega[i];
-      const ms = em ? "（巨型）" : "";
+      const ms = em ? " (mega)" : "";
       if (enemyInv[i] === "bee") {
         const m = document.createElement("span");
         m.className = "icon-bee";
-        m.title = "蜜蜂" + ms;
+        m.title = "Bee" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "butterfly") {
         const m = document.createElement("span");
         m.className = "icon-butterfly";
-        m.title = "蝴蝶" + ms;
+        m.title = "Butterfly" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "raven") {
         const m = document.createElement("span");
         m.className = "icon-raven";
-        m.title = "限定烏鴉" + ms;
+        m.title = "Raven" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "beetle") {
         const m = document.createElement("span");
         m.className = "icon-beetle";
-        m.title = "甲蟲" + ms;
+        m.title = "Beetle" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "dragonfly") {
         const m = document.createElement("span");
         m.className = "icon-dragonfly";
-        m.title = "蜻蜓王" + ms;
+        m.title = "Dragonfly" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "lizard") {
         const m = document.createElement("span");
         m.className = "icon-lizard";
-        m.title = "蜥蜴" + ms;
+        m.title = "Lizard" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "snake") {
         const m = document.createElement("span");
         m.className = "icon-snake";
-        m.title = "蛇" + ms;
+        m.title = "Snake" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "jay") {
         const m = document.createElement("span");
         m.className = "icon-jay";
-        m.title = "冠藍鴉" + ms;
+        m.title = "Jay" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "robin") {
         const m = document.createElement("span");
         m.className = "icon-robin";
-        m.title = "知更鳥" + ms;
+        m.title = "Robin" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "hawk") {
         const m = document.createElement("span");
         m.className = "icon-hawk";
-        m.title = "鷹" + ms;
+        m.title = "Hawk" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "mackerel") {
+        const m = document.createElement("span");
+        m.className = "icon-mackerel";
+        m.title = "Mackerel" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "clownfish") {
+        const m = document.createElement("span");
+        m.className = "icon-clownfish";
+        m.title = "Clownfish" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "lionfish") {
+        const m = document.createElement("span");
+        m.className = "icon-lionfish";
+        m.title = "Lionfish" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "lemon_shark") {
+        const m = document.createElement("span");
+        m.className = "icon-lemon-shark";
+        m.title = "Lemon shark" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "eel") {
+        const m = document.createElement("span");
+        m.className = "icon-eel";
+        m.title = "Eel" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "hammerhead") {
+        const m = document.createElement("span");
+        m.className = "icon-hammerhead";
+        m.title = "Hammerhead" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "great_white") {
+        const m = document.createElement("span");
+        m.className = "icon-great-white";
+        m.title = "Great white" + ms;
         el.appendChild(m);
       }
     });
@@ -1168,7 +1707,7 @@
         badge.className = "gear-stack-count";
         badge.textContent = "×" + shovelCount;
         gearSlot.appendChild(badge);
-        gearSlot.title = "鏟子 ×" + shovelCount + "（點選後對植株按 E 剷除）";
+        gearSlot.title = "Shovel ×" + shovelCount + " (select, then E on plant to dig)";
       }
       const reclaimSlot = gearSlotsEl.querySelector("[data-gear='reclaimer']");
       if (reclaimSlot) {
@@ -1182,7 +1721,7 @@
         badgeR.className = "gear-stack-count";
         badgeR.textContent = "×" + reclaimerCount;
         reclaimSlot.appendChild(badgeR);
-        reclaimSlot.title = "回收器 ×" + reclaimerCount + "（點選後對植株按 E 取回種子，每次一個）";
+        reclaimSlot.title = "Reclaimer ×" + reclaimerCount + " (select, then E to recover one seed)";
       }
     }
   }
@@ -1207,6 +1746,7 @@
       const t = e.target.closest(".inv-slot");
       if (!t || t.dataset.plantIdx === undefined) return;
       const i = Number(t.dataset.plantIdx);
+      selectedEnemySlot = -1;
       selectedPlantSlot = selectedPlantSlot === i ? -1 : i;
       selectedGear = null;
       refreshInvUi();
@@ -1216,6 +1756,7 @@
       const t = e.target.closest(".inv-slot");
       if (!t || t.dataset.enemyIdx === undefined) return;
       const i = Number(t.dataset.enemyIdx);
+      selectedPlantSlot = -1;
       selectedEnemySlot = selectedEnemySlot === i ? -1 : i;
       selectedGear = null;
       refreshInvUi();
@@ -1236,13 +1777,13 @@
         if (!t || !t.dataset.gear) return;
         if (t.dataset.gear === "shovel") {
           if (shovelCount <= 0) {
-            showWarning("沒有鏟子！到左下「道具店」購買。");
+            showWarning("No shovel! Buy at the gear shop (bottom-left).");
             return;
           }
           selectedGear = selectedGear === "shovel" ? null : "shovel";
         } else if (t.dataset.gear === "reclaimer") {
           if (reclaimerCount <= 0) {
-            showWarning("沒有回收器！到左下「道具店」購買。");
+            showWarning("No reclaimer! Buy at the gear shop (bottom-left).");
             return;
           }
           selectedGear = selectedGear === "reclaimer" ? null : "reclaimer";
@@ -1277,7 +1818,7 @@
     return open[(Math.random() * open.length) | 0];
   }
 
-  /** 該道上有敵在植株「前方」（靠生成端、螢幕下方） */
+  /** True if a mob is ahead of the plant in lane (spawn side, toward bottom of screen) */
   function hasMobAheadInLane(laneCol, plantCenterY) {
     const margin = 12;
     return mobs.some((m) => m.lane === laneCol && m.y > plantCenterY - margin);
@@ -1330,6 +1871,7 @@
     if (rebirthModal) rebirthModal.classList.add("hidden");
     if (favoriteModal) favoriteModal.classList.add("hidden");
     settingsModal.classList.add("hidden");
+    closeEnemyDexModal();
   }
 
   function openSettingsPanel() {
@@ -1339,11 +1881,16 @@
     sellModal.classList.add("hidden");
     if (rebirthModal) rebirthModal.classList.add("hidden");
     if (favoriteModal) favoriteModal.classList.add("hidden");
+    closeEnemyDexModal();
     settingsModal.classList.remove("hidden");
   }
 
   function isUiBlocking() {
-    return activeModal !== null || !settingsModal.classList.contains("hidden");
+    return (
+      activeModal !== null ||
+      !settingsModal.classList.contains("hidden") ||
+      (enemyDexModal && !enemyDexModal.classList.contains("hidden"))
+    );
   }
 
   function sellOneEnemyFromInv(preferSelected) {
@@ -1356,7 +1903,7 @@
       idx = enemyInv.findIndex((x) => isValidEnemyWorker(x));
     }
     if (idx === -1) {
-      showWarning("沒有可賣出的單位！");
+      showWarning("Nothing to sell!");
       return false;
     }
     const kind = enemyInv[idx];
@@ -1444,12 +1991,33 @@
     });
   }
 
+  if (btnBuyCoral) {
+    btnBuyCoral.addEventListener("click", () => {
+      if (!isOceanMap()) {
+        showWarning("Coral only on ocean map — switch to Beach Ocean pool.");
+        closeAllModals();
+        return;
+      }
+      if (money < CORAL_COST) {
+        closeAllModals();
+        return;
+      }
+      if (!addPlantCoral()) {
+        closeAllModals();
+        return;
+      }
+      money -= CORAL_COST;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
+
   btnClose.addEventListener("click", closeAllModals);
 
   if (btnBuyShovel) {
     btnBuyShovel.addEventListener("click", () => {
       if (money < SHOVEL_COST) {
-        showWarning("金錢不足！鏟子需 $" + SHOVEL_COST);
+        showWarning("Not enough cash! Shovel costs $" + SHOVEL_COST);
         closeAllModals();
         return;
       }
@@ -1462,7 +2030,7 @@
   if (btnBuyReclaimer) {
     btnBuyReclaimer.addEventListener("click", () => {
       if (money < RECLAIMER_COST) {
-        showWarning("金錢不足！回收器需 $" + RECLAIMER_COST);
+        showWarning("Not enough cash! Reclaimer costs $" + RECLAIMER_COST);
         closeAllModals();
         return;
       }
@@ -1477,7 +2045,7 @@
 
   btnSellSelected.addEventListener("click", () => {
     if (selectedEnemySlot < 0 || !isValidEnemyWorker(enemyInv[selectedEnemySlot])) {
-      showWarning("請先在背包點選可賣出的單位！");
+      showWarning("Select a unit in the backpack first.");
       return;
     }
     sellOneEnemyFromInv(true);
@@ -1498,7 +2066,7 @@
       }
     }
     if (total === 0) {
-      showWarning("沒有可賣的單位！");
+      showWarning("Nothing to sell!");
       return;
     }
     money += total;
@@ -1510,28 +2078,40 @@
   function updateRebirthModal() {
     if (!rebirthModal || !btnUnlockSpawner || !btnSpawnerDefault || !btnSpawnerUpgrade) return;
     btnUnlockSpawner.disabled = spawnerUpgradeOwned;
-    btnUnlockSpawner.textContent = spawnerUpgradeOwned ? "已解鎖升級池" : "解鎖（3×蜻蜓王 + $" + SPAWNER_UPGRADE_COST_MONEY + "）";
+    btnUnlockSpawner.textContent = spawnerUpgradeOwned
+      ? "Upgrade pool unlocked"
+      : "Unlock (3× dragonfly + $" + SPAWNER_UPGRADE_COST_MONEY + ")";
     btnSpawnerDefault.classList.toggle("btn-spawner-active", activeSpawnTable === 0);
     btnSpawnerUpgrade.classList.toggle("btn-spawner-active", activeSpawnTable === 1);
     btnSpawnerUpgrade.disabled = !spawnerUpgradeOwned;
+    if (btnUnlockBeach) {
+      btnUnlockBeach.disabled = beachRebirthOwned;
+      btnUnlockBeach.textContent = beachRebirthOwned
+        ? "Beach ocean unlocked"
+        : "Unlock beach (3× hawk + 5× robin + $100000)";
+    }
+    if (btnSpawnerBeach) {
+      btnSpawnerBeach.classList.toggle("btn-spawner-active", activeSpawnTable === 2);
+      btnSpawnerBeach.disabled = !beachRebirthOwned;
+    }
   }
 
   if (btnUnlockSpawner) {
     btnUnlockSpawner.addEventListener("click", () => {
       if (spawnerUpgradeOwned) {
-        showWarning("你已解鎖升級生成池。");
+        showWarning("Upgrade pool already unlocked.");
         return;
       }
       if (countDragonfliesInInv() < SPAWNER_UPGRADE_DRAGONFLIES) {
-        showWarning("需要背包內有 " + SPAWNER_UPGRADE_DRAGONFLIES + " 隻蜻蜓王。");
+        showWarning("Need " + SPAWNER_UPGRADE_DRAGONFLIES + " dragonflies in bag.");
         return;
       }
       if (money < SPAWNER_UPGRADE_COST_MONEY) {
-        showWarning("金錢不足！解鎖需 $" + SPAWNER_UPGRADE_COST_MONEY);
+        showWarning("Not enough cash! Unlock costs $" + SPAWNER_UPGRADE_COST_MONEY);
         return;
       }
       if (!consumeDragonfliesFromInv(SPAWNER_UPGRADE_DRAGONFLIES)) {
-        showWarning("無法扣除蜻蜓王，請重試。");
+        showWarning("Could not consume dragonflies. Try again.");
         return;
       }
       money -= SPAWNER_UPGRADE_COST_MONEY;
@@ -1540,13 +2120,14 @@
       syncSpawnTableState();
       refreshInvUi();
       updateRebirthModal();
-      showSuccess("已解鎖升級生成池！可切換 Default／Upgrade 1。");
+      showSuccess("Upgrade pool unlocked! Switch Default / Upgrade 1.");
       saveGame();
     });
   }
   if (btnSpawnerDefault) {
     btnSpawnerDefault.addEventListener("click", () => {
       activeSpawnTable = 0;
+      syncSpawnTableState();
       updateRebirthModal();
       saveGame();
     });
@@ -1554,10 +2135,55 @@
   if (btnSpawnerUpgrade) {
     btnSpawnerUpgrade.addEventListener("click", () => {
       if (!spawnerUpgradeOwned) {
-        showWarning("請先解鎖升級生成池。");
+        showWarning("Unlock the upgrade pool first.");
         return;
       }
       activeSpawnTable = 1;
+      syncSpawnTableState();
+      updateRebirthModal();
+      saveGame();
+    });
+  }
+  if (btnUnlockBeach) {
+    btnUnlockBeach.addEventListener("click", () => {
+      if (beachRebirthOwned) {
+        showWarning("Beach ocean already unlocked.");
+        return;
+      }
+      if (countHawksInInv() < BEACH_REBIRTH_HAWKS) {
+        showWarning("Need " + BEACH_REBIRTH_HAWKS + " hawks in bag.");
+        return;
+      }
+      if (countRobinsInInv() < BEACH_REBIRTH_ROBINS) {
+        showWarning("Need " + BEACH_REBIRTH_ROBINS + " robins in bag.");
+        return;
+      }
+      if (money < BEACH_REBIRTH_COST_MONEY) {
+        showWarning("Not enough cash! Beach unlock costs $" + BEACH_REBIRTH_COST_MONEY);
+        return;
+      }
+      if (!consumeHawksFromInv(BEACH_REBIRTH_HAWKS) || !consumeRobinsFromInv(BEACH_REBIRTH_ROBINS)) {
+        showWarning("Could not consume hawks or robins. Try again.");
+        return;
+      }
+      money -= BEACH_REBIRTH_COST_MONEY;
+      beachRebirthOwned = true;
+      activeSpawnTable = 2;
+      syncSpawnTableState();
+      refreshInvUi();
+      updateRebirthModal();
+      showSuccess("Beach unlocked! Beach map + Beach Ocean spawn pool.");
+      saveGame();
+    });
+  }
+  if (btnSpawnerBeach) {
+    btnSpawnerBeach.addEventListener("click", () => {
+      if (!beachRebirthOwned) {
+        showWarning("Unlock beach ocean first.");
+        return;
+      }
+      activeSpawnTable = 2;
+      syncSpawnTableState();
       updateRebirthModal();
       saveGame();
     });
@@ -1568,53 +2194,53 @@
     if (!codeInput) return;
     const code = codeInput.value.trim();
     if (!code) {
-      showWarning("請輸入代碼");
+      showWarning("Enter a code.");
       return;
     }
     if (redeemedCodes.has(code)) {
-      showWarning("此代碼已使用過");
+      showWarning("Code already redeemed.");
       return;
     }
     if (code === CODE_REWARD_PINEAPPLE) {
       if (!plantBackpackHasSpace()) {
-        showWarning("植物背包已滿，請先清出一格再放兌換獎勵。");
+        showWarning("Plant bag full — free a slot for reward.");
         return;
       }
       if (!addPlantPineapple()) return;
       redeemedCodes.add(code);
       persistRedeemedCodesSet(redeemedCodes);
       codeInput.value = "";
-      showSuccess("已領取 1 個鳳梨苗！請在植物背包查看。");
+      showSuccess("Got 1 pineapple seed! Check plant bag.");
       saveGame();
       return;
     }
     if (code === CODE_REWARD_MEGA_FERN) {
       if (!plantBackpackHasSpace()) {
-        showWarning("植物背包已滿，請先清出一格再放兌換獎勵。");
+        showWarning("Plant bag full — free a slot for reward.");
         return;
       }
       if (!addPlantFernMega()) return;
       redeemedCodes.add(code);
       persistRedeemedCodesSet(redeemedCodes);
       codeInput.value = "";
-      showSuccess("已領取 1 粒 2× 體型蕨種子！種下後即為巨型蕨。請在植物背包查看。");
+      showSuccess("Got 1 mega fern seed! Check plant bag.");
       saveGame();
       return;
     }
     if (code === CODE_REWARD_APPLE_TREE_MEGA) {
       if (!plantBackpackHasSpace()) {
-        showWarning("植物背包已滿，請先清出一格再放兌換獎勵。");
+        showWarning("Plant bag full — free a slot for reward.");
         return;
       }
       if (!addPlantAppleTreeMega()) return;
       redeemedCodes.add(code);
       persistRedeemedCodesSet(redeemedCodes);
       codeInput.value = "";
-      showSuccess("已領取 1 株 2× 體型蘋果樹苗！種下後即為巨型蘋果樹（2× 體型、2× 蘋果傷害）。請在植物背包查看。");
+      showSuccess("Got 1 mega apple tree seed! Check plant bag.");
       saveGame();
       return;
     }
-    showWarning("代碼無效（請注意大小寫）");
+    showWarning("Invalid code (case-sensitive).");
   }
 
   if (btnRedeemCode && codeInput) {
@@ -1629,8 +2255,10 @@
 
   btnSettings.addEventListener("click", () => openSettingsPanel());
   btnCloseSettings.addEventListener("click", () => settingsModal.classList.add("hidden"));
+  if (btnOpenEnemyDex) btnOpenEnemyDex.addEventListener("click", () => openEnemyDexModal());
+  if (btnCloseEnemyDex) btnCloseEnemyDex.addEventListener("click", () => closeEnemyDexModal());
   btnWipeProgress.addEventListener("click", () => {
-    if (!confirm("確定要清除所有遊戲進度？此操作無法復原。")) return;
+    if (!confirm("Clear all progress? This cannot be undone.")) return;
     try {
       localStorage.removeItem(SAVE_KEY);
     } catch (err) {
@@ -1692,6 +2320,7 @@
 
   function getActiveSpawnWeights() {
     syncSpawnTableState();
+    if (activeSpawnTable === 2 && beachRebirthOwned) return MOB_SPAWN_WEIGHTS_BEACH;
     if (activeSpawnTable === 1 && spawnerUpgradeOwned) return MOB_SPAWN_WEIGHTS_UPGRADE;
     return MOB_SPAWN_WEIGHTS;
   }
@@ -1719,7 +2348,7 @@
       const cy = s.y + s.h / 2;
       if (dist(player.x, player.y, cx, cy) < 44) {
         if (money < price) {
-          showWarning("解鎖此灰格需要 $" + price);
+          showWarning("Unlock this gray slot for $" + price);
           return;
         }
         money -= price;
@@ -1734,7 +2363,7 @@
       const price = LANE_UNLOCK_PRICE[g.col];
       if (price <= 0) return;
       if (money < price) {
-        showWarning("解鎖第 " + (g.col + 1) + " 道種植需要 $" + price);
+        showWarning("Unlock lane " + (g.col + 1) + " for $" + price);
         return;
       }
       money -= price;
@@ -1755,15 +2384,15 @@
       const entry = favoriteBox[i];
       if (entry) {
         b.classList.add("has-item");
-        b.textContent = entry.cat === "plant" ? "植" : "敵";
+        b.textContent = entry.cat === "plant" ? "P" : "E";
         b.title =
-          (entry.cat === "plant" ? "植物：" : "敵人：") +
+          (entry.cat === "plant" ? "Plant: " : "Enemy: ") +
           entry.item +
-          (entry.cat === "enemy" && entry.mega ? "（巨型）" : "") +
-          "（點擊取回背包）";
+          (entry.cat === "enemy" && entry.mega ? " (mega)" : "") +
+          " (click to retrieve)";
       } else {
         b.classList.add("empty");
-        b.title = "空格";
+        b.title = "Empty";
       }
       favoriteGridEl.appendChild(b);
     }
@@ -1774,17 +2403,18 @@
     if (!entry) return;
     if (entry.cat === "plant") {
       if (!tryAddToPlantInv(entry.item)) {
-        showWarning("植物背包已滿，無法取回；收藏箱內物品仍保留。");
+        showWarning("Plant bag full — stash item kept.");
         return;
       }
     } else {
       const ix = enemyInv.indexOf(null);
       if (ix === -1) {
-        showWarning("敵人背包已滿，無法取回；收藏箱內物品仍保留。");
+        showWarning("Enemy bag full — stash item kept.");
         return;
       }
       enemyInv[ix] = entry.item;
       enemyInvMega[ix] = !!entry.mega;
+      registerEnemyDex(entry.item);
     }
     favoriteBox[index] = null;
     refreshInvUi();
@@ -1792,14 +2422,14 @@
     saveGame();
   }
 
-  /** @returns {boolean} 已處理（含警告） */
+  /** @returns {boolean} handled (including toasts) */
   function tryDepositFavorite() {
     if (!rectsOverlap(player.x, player.y, player.r, favoriteBoxRect.x, favoriteBoxRect.y, favoriteBoxRect.w, favoriteBoxRect.h)) {
       return false;
     }
     const fi = favoriteBox.indexOf(null);
     if (fi === -1) {
-      showWarning("收藏箱已滿（50 格）。");
+      showWarning("Stash full (50 slots).");
       return true;
     }
     let cat = null;
@@ -1807,7 +2437,7 @@
     if (selectedPlantSlot >= 0) {
       const t = plantInv[selectedPlantSlot];
       if (!t) {
-        showWarning("請選取有物品的背包格。");
+        showWarning("Select a slot with an item.");
         return true;
       }
       cat = "plant";
@@ -1817,7 +2447,7 @@
     } else if (selectedEnemySlot >= 0) {
       const t = enemyInv[selectedEnemySlot];
       if (!t || !isValidEnemyWorker(t)) {
-        showWarning("請選取有物品的背包格。");
+        showWarning("Select a slot with an item.");
         return true;
       }
       cat = "enemy";
@@ -1832,7 +2462,7 @@
       saveGame();
       return true;
     } else {
-      showWarning("請先在背包點選要放入收藏箱的物品。");
+      showWarning("Select something in the backpack to stash.");
       return true;
     }
     favoriteBox[fi] = { cat, item };
@@ -1865,7 +2495,7 @@
     const g = gridFromPixel(player.x, player.y);
     if (g) {
       if (!laneUnlocked[g.col]) {
-        showWarning("此種植道尚未解鎖，站在該欄花園格按 R 購買");
+        showWarning("Lane locked — stand on that column and press R to buy.");
         return;
       }
       const hasPlant = plants.some((p) => p.row === g.row && p.col === g.col);
@@ -1886,7 +2516,7 @@
           if (pi >= 0) {
             const seedItem = plantToSeedItem(plants[pi]);
             if (!tryAddToPlantInv(seedItem)) {
-              showWarning("植物背包已滿，無法回收種子；已保留植株與回收器。");
+              showWarning("Plant bag full — plant and reclaimer kept.");
               return;
             }
             plants.splice(pi, 1);
@@ -1909,15 +2539,19 @@
             plantInv.indexOf("pineapple") === -1 &&
             plantInv.indexOf("apple_tree") === -1 &&
             plantInv.indexOf("apple_tree_mega") === -1 &&
+            plantInv.indexOf("coral") === -1 &&
+            plantInv.indexOf("coral_mega") === -1 &&
             plantInv.indexOf("fern_mega") === -1
           ) {
-            showWarning("沒有可種植的苗（草莓／蕨／葡萄／鳳梨／蘋果樹）！");
+            showWarning("No seeds to plant (strawberry / fern / grape / pineapple / apple / coral)!");
           }
           return;
         }
-        // 僅兌換碼給的 fern_mega／apple_tree_mega 事先決定巨型；商店／其餘苗的巨型一律在種植當下骰定
+        // Only code-given fern_mega / apple_tree_mega are mega by rule; shop / other seeds roll mega on plant
         const mega =
-          item === "fern_mega" || item === "apple_tree_mega" ? true : Math.random() < MEGA_PLANT_CHANCE;
+          item === "fern_mega" || item === "apple_tree_mega" || item === "coral_mega"
+            ? true
+            : Math.random() < MEGA_PLANT_CHANCE;
         const kind =
           item === "seed"
             ? "strawberry"
@@ -1927,7 +2561,10 @@
                 ? "grape"
                 : item === "apple_tree" || item === "apple_tree_mega"
                   ? "apple_tree"
-                  : "pineapple";
+                  : item === "coral" || item === "coral_mega"
+                    ? "coral"
+                    : "pineapple";
+        seaGrassGrid[g.row][g.col] = null;
         plants.push({
           row: g.row,
           col: g.col,
@@ -1951,8 +2588,76 @@
         if (!took) return;
         s.worker = took.type;
         s.workerMega = took.mega;
+        registerEnemyDex(took.type);
         refreshInvUi();
+        saveGame();
         return;
+      }
+    }
+  }
+
+  function updateSeaGrass(dt) {
+    const ocean = isOceanMap();
+    if (lastWasOceanMap && !ocean) {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const g = seaGrassGrid[r][c];
+          if (g) {
+            g.dying = true;
+            g.dieLeft = SEA_GRASS_DIE_OFF_TIME;
+          }
+        }
+      }
+    }
+    if (!lastWasOceanMap && ocean) {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const g = seaGrassGrid[r][c];
+          if (g && g.dying) {
+            g.dying = false;
+            g.dieLeft = undefined;
+          }
+        }
+      }
+    }
+    lastWasOceanMap = ocean;
+
+    if (!ocean) {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const g = seaGrassGrid[r][c];
+          if (g && g.dying && typeof g.dieLeft === "number") {
+            g.dieLeft -= dt;
+            if (g.dieLeft <= 0) seaGrassGrid[r][c] = null;
+          }
+        }
+      }
+      return;
+    }
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!laneUnlocked[c]) continue;
+        if (plants.some((p) => p.row === r && p.col === c)) {
+          seaGrassGrid[r][c] = null;
+          continue;
+        }
+        let g = seaGrassGrid[r][c];
+        if (g && g.dying) {
+          g.dying = false;
+          g.dieLeft = undefined;
+        }
+        if (!g) {
+          seaGrassGrid[r][c] = { growAcc: 0 };
+          g = seaGrassGrid[r][c];
+        }
+        if (!g.mature) {
+          g.growAcc += dt;
+          if (g.growAcc >= SEA_GRASS_GROW_TIME) {
+            g.mature = true;
+            g.growAcc = SEA_GRASS_GROW_TIME;
+          }
+        }
       }
     }
   }
@@ -1972,6 +2677,7 @@
     );
     if (inBuy) {
       if (activeModal !== "buy") setActiveModal("buy");
+      syncShopCoralButton();
     } else if (inGearShop) {
       if (activeModal !== "gear") setActiveModal("gear");
     } else if (inSell) {
@@ -1990,6 +2696,15 @@
           p.mature = true;
           p.growLeft = 0;
           p.shootCd = 0;
+          if (p.kind === "coral") {
+            const rgb = rollCoralOceanRgb();
+            p.coralR = rgb.r;
+            p.coralG = rgb.g;
+            p.coralB = rgb.b;
+            const ocean = isOceanMap();
+            p.coralStressed = !ocean;
+            p.coralRecoverLeft = ocean ? 0 : CORAL_RECOVER_SEC;
+          }
           matureNow = true;
         }
       } else if (p.kind === "strawberry") {
@@ -2052,9 +2767,36 @@
             mobs.splice(j, 1);
           }
         }
+      } else if (p.kind === "coral") {
+        const ocean = isOceanMap();
+        if (!ocean) {
+          p.coralStressed = true;
+          p.coralRecoverLeft = CORAL_RECOVER_SEC;
+        } else if (p.coralStressed) {
+          p.coralRecoverLeft -= dt;
+          if (p.coralRecoverLeft <= 0) {
+            p.coralStressed = false;
+            p.coralRecoverLeft = 0;
+          }
+        }
+        const pc = cellCenter(p.row, p.col);
+        const dps = (p.coralStressed ? CORAL_DPS_WEAK : CORAL_DPS_FULL) * plantDamageMult(p);
+        for (let j = mobs.length - 1; j >= 0; j--) {
+          const mob = mobs[j];
+          if (mob.lane !== p.col) continue;
+          if (mob.y <= pc.y + 4) continue;
+          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE * enemyMobDrawScale(mob)) continue;
+          mob.hp -= dps * dt;
+          if (mob.hp <= 0) {
+            if (addEnemyToInv(mob.type, !!mob.mega)) registerEnemyDefeatForBoss();
+            mobs.splice(j, 1);
+          }
+        }
       }
     }
     if (matureNow) anyMaturePlant = plants.some((pl) => pl.mature);
+
+    updateSeaGrass(dt);
 
     if (anyMaturePlant) {
       spawnAcc += dt;
@@ -2137,6 +2879,56 @@
             lane,
             mega,
           });
+        } else if (kind === "mackerel") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: MACKEREL_HP,
+            speed: MACKEREL_SPEED,
+            type: "mackerel",
+            lane,
+            mega,
+          });
+        } else if (kind === "clownfish") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: CLOWNFISH_HP,
+            speed: CLOWNFISH_SPEED,
+            type: "clownfish",
+            lane,
+            mega,
+          });
+        } else if (kind === "lionfish") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: LIONFISH_HP,
+            speed: LIONFISH_SPEED,
+            type: "lionfish",
+            lane,
+            mega,
+          });
+        } else if (kind === "lemon_shark") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: LEMON_SHARK_HP,
+            speed: LEMON_SHARK_SPEED,
+            type: "lemon_shark",
+            lane,
+            mega,
+          });
+        } else if (kind === "eel") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: EEL_HP,
+            speed: EEL_SPEED,
+            type: "eel",
+            lane,
+            mega,
+          });
         }
       }
     }
@@ -2205,15 +2997,15 @@
   }
 
   /**
-   * 植物角色慣例：成熟株皆有大眼（白鞏膜＋瞳孔）。新植物請在角色繪製尾端呼叫此函式，參數比照既有植株。
+   * Plant convention: mature plants have large eyes (sclera + pupils). Call at end of new plant draws; match existing params.
    * @param {CanvasRenderingContext2D} c
    * @param {object} opt
-   * @param {number} opt.y — 雙眼中心連線的 y（已乘 scale 前的本地座標）
-   * @param {number} [opt.spread=4.5] — 單眼距離角色中心的水平半距
-   * @param {number} [opt.whiteR=3.2] — 眼白半徑
-   * @param {number} [opt.pupilR=1.3] — 瞳孔半徑
+   * @param {number} opt.y — eye line y in local coords before scale
+   * @param {number} [opt.spread=4.5] — half horizontal distance from center to each eye
+   * @param {number} [opt.whiteR=3.2] — sclera radius
+   * @param {number} [opt.pupilR=1.3] — pupil radius
    * @param {string} [opt.pupilColor='#1a1a1a']
-   * @param {number} [opt.pupilLX=0] [opt.pupilLY=0] [opt.pupilRX=0] [opt.pupilRY=0] — 瞳孔相對眼白的偏移（本地座標，未乘 scale 的係數會在內部乘 scale）
+   * @param {number} [opt.pupilLX=0] [opt.pupilLY=0] [opt.pupilRX=0] [opt.pupilRY=0] — pupil offset from sclera (local; scaled inside)
    */
   function drawCutePlantEyes(c, scale, opt) {
     const s = scale;
@@ -2241,7 +3033,7 @@
   }
 
   /**
-   * 手繪風草莓角色（接近參考圖）：倒三角紅身、上方波浪綠葉、白籽、大眼白底黑瞳孔（略帶鬥雞眼趣味）
+   * Hand-drawn strawberry: inverted red triangle, wavy green leaves, white seeds, large eyes (slight cross-eyed look).
    */
   function drawStrawberryCharacter(c, cx, cy, scale) {
     const s = scale;
@@ -2303,7 +3095,141 @@
     c.restore();
   }
 
-  /** 參考圖：蓬鬆綠葉、大白眼＋紅瞳、底部菱形盆 */
+  /** HSL (hue 0–360, saturation/lightness 0–1) → RGB */
+  function hslToRgb(hDeg, s, l) {
+    const h = (((hDeg % 360) + 360) % 360) / 360;
+    let r;
+    let g;
+    let b;
+    if (s <= 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        let tt = t;
+        if (tt < 0) tt += 1;
+        if (tt > 1) tt -= 1;
+        if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+        if (tt < 1 / 2) return q;
+        if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+    return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+  }
+
+  /** Ocean coral palette: random vivid color, excluding black/white/brown/gray */
+  function rollCoralOceanRgb() {
+    for (let i = 0; i < 140; i++) {
+      const hue = Math.random() * 360;
+      const sat = 0.48 + Math.random() * 0.52;
+      const light = 0.35 + Math.random() * 0.3;
+      if (light < 0.12 || light > 0.88) continue;
+      if (sat < 0.42) continue;
+      if (hue >= 15 && hue <= 48 && light >= 0.2 && light <= 0.58) continue;
+      const rgb = hslToRgb(hue, sat, light);
+      const mx = Math.max(rgb.r, rgb.g, rgb.b);
+      const mn = Math.min(rgb.r, rgb.g, rgb.b);
+      if (mx - mn < 38) continue;
+      if (mx < 42) continue;
+      if (mn > 238) continue;
+      return rgb;
+    }
+    return { r: 0, g: 191, b: 165 };
+  }
+
+  /** Coral: branching + base; large eyes, socket ring matches coral hue */
+  function drawCoralCharacter(c, cx, cy, scale, r, g, b, stressed, recoverLeft, ocean) {
+    const s = scale;
+    c.save();
+    c.translate(cx, cy);
+    const base = stressed ? "#9e9e9e" : "rgb(" + r + "," + g + "," + b + ")";
+    const dark = stressed ? "#616161" : "rgba(" + Math.max(0, r - 55) + "," + Math.max(0, g - 45) + "," + Math.max(0, b - 40) + ",1)";
+    c.lineCap = "round";
+    const br = 7;
+    for (let k = 0; k < br; k++) {
+      const ang = (-Math.PI * 0.65 + (k / (br - 1)) * Math.PI * 1.3) + (Math.sin(k * 2.1) * 0.08);
+      const len = (13 + (k % 3) * 3) * s;
+      c.strokeStyle = k % 2 === 0 ? base : dark;
+      c.lineWidth = (1.8 + (k % 2)) * s;
+      c.beginPath();
+      c.moveTo(Math.sin(ang) * 1.8 * s, 8 * s);
+      c.quadraticCurveTo(Math.sin(ang) * len * 0.42, 0, Math.sin(ang) * 0.15 * len, -len * 0.92);
+      c.stroke();
+    }
+    c.fillStyle = stressed ? "#bdbdbd" : "rgba(" + r + "," + g + "," + b + ",0.88)";
+    c.beginPath();
+    c.moveTo(-12 * s, 10 * s);
+    c.quadraticCurveTo(-13 * s, 14 * s, -5 * s, 12.5 * s);
+    c.quadraticCurveTo(0, 13.5 * s, 5 * s, 12.5 * s);
+    c.quadraticCurveTo(13 * s, 14 * s, 12 * s, 10 * s);
+    c.lineTo(9 * s, 9 * s);
+    c.lineTo(-9 * s, 9 * s);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = stressed ? "#757575" : dark;
+    c.lineWidth = 1.2 * s;
+    c.stroke();
+
+    const socketFill = stressed
+      ? "#bdbdbd"
+      : "rgb(" +
+        Math.max(0, Math.round(r * 0.72)) +
+        "," +
+        Math.max(0, Math.round(g * 0.68)) +
+        "," +
+        Math.max(0, Math.round(b * 0.7)) +
+        ")";
+    const socketEdge = stressed
+      ? "#757575"
+      : "rgb(" +
+        Math.max(0, Math.round(r * 0.48)) +
+        "," +
+        Math.max(0, Math.round(g * 0.44)) +
+        "," +
+        Math.max(0, Math.round(b * 0.46)) +
+        ")";
+    const eyeY = -4 * s;
+    const spread = 7.5 * s;
+    const socketR = 6 * s;
+    const whiteR = 4.5 * s;
+    const pupilR = 2 * s;
+    for (const ex of [-spread, spread]) {
+      c.fillStyle = socketFill;
+      c.beginPath();
+      c.arc(ex, eyeY, socketR, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = socketEdge;
+      c.lineWidth = 1.15 * s;
+      c.stroke();
+      c.fillStyle = "#ffffff";
+      c.beginPath();
+      c.arc(ex, eyeY, whiteR, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = "#1a1a1a";
+      c.beginPath();
+      c.arc(ex + 0.45 * s, eyeY - 0.35 * s, pupilR, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = "rgba(255,255,255,0.5)";
+      c.beginPath();
+      c.arc(ex - 1.2 * s, eyeY - 1.2 * s, 0.85 * s, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    if (stressed && ocean && recoverLeft > 0.05) {
+      c.fillStyle = "#fff";
+      c.font = "bold 10px sans-serif";
+      c.textAlign = "center";
+      c.fillText(Math.ceil(recoverLeft) + "s", 0, -16 * s);
+    }
+    c.restore();
+  }
+
+  /** Reference style: fluffy green leaves, large white eyes + red pupils, diamond pot base */
   function drawFernCharacter(c, cx, cy, scale) {
     const s = scale;
     c.save();
@@ -2371,7 +3297,76 @@
     c.restore();
   }
 
-  /** 鳳梨：金黃橢圓身、頂端綠冠、大眼 */
+  /** Sea grass: fern silhouette, teal / sea-green palette (decorative, no combat) */
+  function drawSeaGrassCharacter(c, cx, cy, scale, maturity) {
+    const m = Math.max(0.12, Math.min(1, maturity));
+    const s = scale * m;
+    c.save();
+    c.translate(cx, cy);
+
+    c.fillStyle = "#26a69a";
+    c.beginPath();
+    c.arc(0, 2 * s, 11 * s, Math.PI, 0);
+    c.lineTo(8.5 * s, 7 * s);
+    c.quadraticCurveTo(0, 10 * s, -8.5 * s, 7 * s);
+    c.closePath();
+    c.fill();
+
+    const frondCount = 19;
+    c.lineCap = "round";
+    for (let i = 0; i < frondCount; i++) {
+      const t = i / (frondCount - 1);
+      const ang = -Math.PI * 0.92 + t * Math.PI * 0.84;
+      const len = (11 + Math.sin(t * Math.PI) * 5) * s;
+      const wob = (Math.sin(i * 1.7) * 0.15 + 1) * s;
+      c.strokeStyle = i % 3 === 0 ? "#00695c" : "#4db6ac";
+      c.lineWidth = (2 + (i % 2)) * wob * 0.5;
+      c.beginPath();
+      c.moveTo(Math.cos(ang) * 2.5 * s, 6 * s + Math.sin(ang) * 1.5 * s);
+      c.quadraticCurveTo(
+        Math.cos(ang - 0.08) * len * 0.45,
+        2 * s + Math.sin(ang) * len * 0.25,
+        Math.cos(ang - 0.02) * len * 0.92,
+        -10 * s + Math.sin(ang) * len * 0.35
+      );
+      c.stroke();
+    }
+
+    drawCutePlantEyes(c, s, {
+      y: -2.5,
+      spread: 4.2,
+      whiteR: 3.6,
+      pupilR: 1.45,
+      pupilColor: "#004d40",
+      pupilLX: 0.6,
+      pupilLY: 0.3,
+      pupilRX: 0.6,
+      pupilRY: -0.3,
+    });
+
+    c.strokeStyle = "#004d40";
+    c.lineWidth = 1.4 * s;
+    c.beginPath();
+    c.moveTo(0, 10 * s);
+    c.lineTo(4.5 * s, 15 * s);
+    c.lineTo(0, 19 * s);
+    c.lineTo(-4.5 * s, 15 * s);
+    c.closePath();
+    c.stroke();
+
+    c.fillStyle = "#00796b";
+    c.beginPath();
+    c.moveTo(0, 11 * s);
+    c.lineTo(3 * s, 15 * s);
+    c.lineTo(0, 18 * s);
+    c.lineTo(-3 * s, 15 * s);
+    c.closePath();
+    c.fill();
+
+    c.restore();
+  }
+
+  /** Pineapple: golden oval body, green crown, large eyes */
   function drawPineappleCharacter(c, cx, cy, scale) {
     const s = scale;
     c.save();
@@ -2430,7 +3425,7 @@
     c.restore();
   }
 
-  /** 藤、綠葉、紫葡萄串；成熟後朝同欄下方射出紫色子彈 */
+  /** Vine, green leaves, purple bunches; shoots purple projectiles down-lane when mature */
   function drawGrapeCharacter(c, cx, cy, scale) {
     const s = scale;
     c.save();
@@ -2495,7 +3490,7 @@
     c.restore();
   }
 
-  /** 蘋果樹：棕幹、綠冠、三顆小蘋果、特大雙眼 */
+  /** Apple tree: brown trunk, green crown, three small apples, oversized eyes */
   function drawAppleTreeCharacter(c, cx, cy, scale) {
     const s = scale;
     c.save();
@@ -2575,6 +3570,23 @@
       return "";
     }
     return fernIconDataUrl;
+  }
+
+  function getCoralIconDataUrl() {
+    if (coralIconDataUrl) return coralIconDataUrl;
+    try {
+      const ic = document.createElement("canvas");
+      ic.width = 40;
+      ic.height = 44;
+      const ictx = ic.getContext("2d");
+      if (!ictx) return "";
+      ictx.clearRect(0, 0, 40, 44);
+      drawCoralCharacter(ictx, 20, 24, 0.88, 236, 64, 122, false, 0, true);
+      coralIconDataUrl = ic.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
+    return coralIconDataUrl;
   }
 
   function getStrawberrySeedIconDataUrl() {
@@ -2896,7 +3908,7 @@
     ctx.restore();
   }
 
-  /** 蜻蜓王：紅身、綠翅、體型較大 */
+  /** Dragonfly boss: red body, green wings, larger */
   /** @param {{ x: number, y: number, hp: number }} m */
   function drawDragonflyWorld(m, showHp, worldScale) {
     const x = m.x;
@@ -3253,7 +4265,7 @@
     ctx.restore();
   }
 
-  /** 知更鳥：灰背、橘腹 */
+  /** Robin: gray back, orange belly */
   function drawRobinWorld(m, showHp, worldScale) {
     const x = m.x;
     const y = m.y;
@@ -3306,7 +4318,7 @@
     ctx.restore();
   }
 
-  /** 鷹：大型棕翅猛禽 */
+  /** Hawk: large brown-winged raptor */
   function drawHawkWorld(m, showHp, worldScale) {
     const x = m.x;
     const y = m.y;
@@ -3363,6 +4375,312 @@
     ctx.restore();
   }
 
+  function drawMackerelWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const w = Math.sin(performance.now() / 100) * 0.08;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(w);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#90a4ae";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#37474f";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    for (let i = -1; i <= 1; i++) {
+      ctx.strokeStyle = "#546e7a";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-10 + i * 4, -2);
+      ctx.lineTo(12, -2 + i * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#263238";
+    ctx.beginPath();
+    ctx.arc(12, -1, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 12);
+    }
+    ctx.restore();
+  }
+
+  function drawClownfishWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#ff6f00";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 16, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-6, -5, 5, 10);
+    ctx.fillRect(2, -5, 5, 10);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(10, -1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 14);
+    }
+    ctx.restore();
+  }
+
+  function drawLionfishWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    const sp = Math.sin(performance.now() / 90) * 0.15;
+    ctx.strokeStyle = "#7b1fa2";
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 7; i++) {
+      const ang = -0.8 + i * 0.25 + sp;
+      ctx.beginPath();
+      ctx.moveTo(-8, 2);
+      ctx.lineTo(-20 * Math.cos(ang), -14 * Math.sin(ang));
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#ff7043";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 14, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#bf360c";
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(6, -2, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(7, -2, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 15);
+    }
+    ctx.restore();
+  }
+
+  function drawLemonSharkWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#fff59d";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fdd835";
+    ctx.beginPath();
+    ctx.moveTo(-20, 0);
+    ctx.lineTo(-32, -6);
+    ctx.lineTo(-32, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(12, -2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#f9a825";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    if (showHp) {
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 14);
+    }
+    ctx.restore();
+  }
+
+  function drawEelWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const t = performance.now() / 120;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.strokeStyle = "#37474f";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-18, 8);
+    ctx.quadraticCurveTo(0, -4 + Math.sin(t) * 3, 18, 0);
+    ctx.stroke();
+    ctx.fillStyle = "#78909c";
+    ctx.beginPath();
+    ctx.ellipse(18, 0, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(20, -1, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 16);
+    }
+    ctx.restore();
+  }
+
+  function drawHammerheadWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const wob = Math.sin(performance.now() / 700 + x * 0.01) * 0.04;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.rotate(wob);
+
+    const hammerGrad = ctx.createLinearGradient(-34, -14, 10, 6);
+    hammerGrad.addColorStop(0, "#7894a8");
+    hammerGrad.addColorStop(0.45, "#5c7585");
+    hammerGrad.addColorStop(1, "#3d4f5c");
+    ctx.fillStyle = hammerGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, -9, 30, 8.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(25,35,42,0.45)";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(180,200,215,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(-6, -12, 10, 4, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    const bodyGrad = ctx.createRadialGradient(8, 4, 2, 14, 8, 22);
+    bodyGrad.addColorStop(0, "#6d8694");
+    bodyGrad.addColorStop(0.55, "#4a5f6b");
+    bodyGrad.addColorStop(1, "#2e3d45");
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(10, 5, 15, 12, 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(176,190,200,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(12, 10, 9, 6, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(20,28,32,0.55)";
+    ctx.lineWidth = 1.05;
+    ctx.lineCap = "round";
+    for (let g = 0; g < 3; g++) {
+      ctx.beginPath();
+      ctx.moveTo(2 + g * 3.5, 2);
+      ctx.quadraticCurveTo(5 + g * 3.5, 8 + g * 2, 8 + g * 3.5, 14 + g);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#263238";
+    ctx.beginPath();
+    ctx.ellipse(18, -4, 2.6, 2.1, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath();
+    ctx.arc(19, -4.5, 0.65, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(55,71,79,0.9)";
+    ctx.beginPath();
+    ctx.moveTo(4, 12);
+    ctx.quadraticCurveTo(-2, 18, -8, 22);
+    ctx.lineTo(-5, 24);
+    ctx.quadraticCurveTo(2, 20, 8, 14);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(38,50,56,0.65)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(22, 14);
+    ctx.quadraticCurveTo(30, 10, 34, 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(24, 16);
+    ctx.quadraticCurveTo(32, 14, 36, 10);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(0,0,0,0.2)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(10, 5, 15, 12, 0.08, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 24);
+    }
+    ctx.restore();
+  }
+
+  function drawGreatWhiteWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#eceff1";
+    ctx.beginPath();
+    ctx.ellipse(2, 0, 26, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#90a4ae";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = "#cfd8dc";
+    ctx.beginPath();
+    ctx.moveTo(-22, 2);
+    ctx.lineTo(-38, -4);
+    ctx.lineTo(-38, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(18, -4, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(19, -5, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#000";
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 24);
+    }
+    ctx.restore();
+  }
+
   function drawMobWorld(m, showHp) {
     const ms = enemyMobDrawScale(m);
     if (m.type === "dragonfly") drawDragonflyWorld(m, showHp, 1.18 * ms);
@@ -3374,6 +4692,13 @@
     else if (m.type === "jay") drawJayWorld(m, showHp, 0.88 * ms);
     else if (m.type === "robin") drawRobinWorld(m, showHp, 0.86 * ms);
     else if (m.type === "hawk") drawHawkWorld(m, showHp, 1.02 * ms);
+    else if (m.type === "mackerel") drawMackerelWorld(m, showHp, 0.88 * ms);
+    else if (m.type === "clownfish") drawClownfishWorld(m, showHp, 0.85 * ms);
+    else if (m.type === "lionfish") drawLionfishWorld(m, showHp, 0.82 * ms);
+    else if (m.type === "lemon_shark") drawLemonSharkWorld(m, showHp, 0.78 * ms);
+    else if (m.type === "eel") drawEelWorld(m, showHp, 0.8 * ms);
+    else if (m.type === "hammerhead") drawHammerheadWorld(m, showHp, 0.72 * ms);
+    else if (m.type === "great_white") drawGreatWhiteWorld(m, showHp, 0.68 * ms);
     else drawBeeWorld(m, showHp, ms);
   }
 
@@ -3384,9 +4709,13 @@
         const x = GRID_X + c * CELL;
         const y = GRID_Y + r * CELL;
         const open = laneUnlocked[c];
-        ctx.fillStyle = open ? "#2d6a3e" : "#4a3520";
+        if (isOceanMap()) {
+          ctx.fillStyle = open ? "#e6d5b0" : "#a08060";
+        } else {
+          ctx.fillStyle = open ? "#2d6a3e" : "#4a3520";
+        }
         ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
-        ctx.strokeStyle = "#1a1510";
+        ctx.strokeStyle = isOceanMap() ? "#8d6e63" : "#1a1510";
         ctx.lineWidth = 2;
         ctx.strokeRect(x + 1, y + 1, CELL - 2, CELL - 2);
         if (!open && LANE_UNLOCK_PRICE[c] > 0 && r === priceRow) {
@@ -3419,7 +4748,9 @@
                 ? "#5d4037"
                 : pk === "apple_tree"
                   ? "#33691e"
-                  : "#4a3728";
+                  : pk === "coral"
+                    ? "#ff7043"
+                    : "#4a3728";
         ctx.beginPath();
         ctx.arc(cx, cy - 4 + 8 * (1 - t), (6 + 4 * t) * ps, 0, Math.PI * 2);
         ctx.fill();
@@ -3435,8 +4766,44 @@
         drawPineappleCharacter(ctx, cx, cy + 2, 0.72 * ps);
       } else if (pk === "apple_tree") {
         drawAppleTreeCharacter(ctx, cx, cy + 2, 0.62 * ps);
+      } else if (pk === "coral") {
+        const cr = typeof p.coralR === "number" ? p.coralR : 200;
+        const cg = typeof p.coralG === "number" ? p.coralG : 120;
+        const cb = typeof p.coralB === "number" ? p.coralB : 160;
+        drawCoralCharacter(
+          ctx,
+          cx,
+          cy + 2,
+          0.98 * ps,
+          cr,
+          cg,
+          cb,
+          !!p.coralStressed,
+          typeof p.coralRecoverLeft === "number" ? p.coralRecoverLeft : 0,
+          isOceanMap()
+        );
       } else {
         drawStrawberryCharacter(ctx, cx, cy - 2, 1 * ps);
+      }
+    }
+  }
+
+  function drawSeaGrass() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const g = seaGrassGrid[r][c];
+        if (!g) continue;
+        const cx = GRID_X + c * CELL + CELL / 2;
+        const cy = GRID_Y + r * CELL + CELL / 2;
+        const mat = g.mature ? 1 : Math.min(1, g.growAcc / SEA_GRASS_GROW_TIME);
+        let alpha = 1;
+        if (g.dying && typeof g.dieLeft === "number") {
+          alpha = Math.max(0, g.dieLeft / SEA_GRASS_DIE_OFF_TIME);
+        }
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        drawSeaGrassCharacter(ctx, cx, cy + 2, 0.78, mat);
+        ctx.restore();
       }
     }
   }
@@ -3450,14 +4817,18 @@
     ctx.fillStyle = "#fff";
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("商店", shopRect.x + shopRect.w / 2, shopRect.y + 24);
+    ctx.fillText("Shop", shopRect.x + shopRect.w / 2, shopRect.y + 24);
     ctx.font = "9px sans-serif";
-    ctx.fillText("苗 $" + STRAWBERRY_COST + " · 5s", shopRect.x + shopRect.w / 2, shopRect.y + 40);
-    ctx.fillText("蕨 $" + FERN_COST + " · 10s 近2／s", shopRect.x + shopRect.w / 2, shopRect.y + 52);
-    ctx.fillText("葡 $" + GRAPE_COST + " · 15s 射擊", shopRect.x + shopRect.w / 2, shopRect.y + 64);
-    ctx.fillText("鳳 $" + PINEAPPLE_COST + " · " + GROW_TIME_PINEAPPLE + "s 近15／s", shopRect.x + shopRect.w / 2, shopRect.y + 76);
-    ctx.fillText("蘋 $" + APPLE_TREE_COST + " · " + GROW_TIME_APPLE_TREE + "s 15／發", shopRect.x + shopRect.w / 2, shopRect.y + 90);
-    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 104);
+    ctx.fillText("Sb $" + STRAWBERRY_COST + " · 5s", shopRect.x + shopRect.w / 2, shopRect.y + 40);
+    ctx.fillText("Fn $" + FERN_COST + " · 10s melee 2/s", shopRect.x + shopRect.w / 2, shopRect.y + 52);
+    ctx.fillText("Gp $" + GRAPE_COST + " · 15s shoot", shopRect.x + shopRect.w / 2, shopRect.y + 64);
+    ctx.fillText("Pn $" + PINEAPPLE_COST + " · " + GROW_TIME_PINEAPPLE + "s melee 15/s", shopRect.x + shopRect.w / 2, shopRect.y + 76);
+    ctx.fillText("Ap $" + APPLE_TREE_COST + " · " + GROW_TIME_APPLE_TREE + "s 15/hit", shopRect.x + shopRect.w / 2, shopRect.y + 90);
+    ctx.fillText("Cr $" + CORAL_COST + " · " + GROW_TIME_CORAL + "s melee 30/s", shopRect.x + shopRect.w / 2, shopRect.y + 104);
+    ctx.fillStyle = isOceanMap() ? "#fff" : "#9e9e9e";
+    ctx.fillText("(ocean)", shopRect.x + shopRect.w / 2, shopRect.y + 116);
+    ctx.fillStyle = "#fff";
+    ctx.fillText("Stand here for menu", shopRect.x + shopRect.w / 2, shopRect.y + 130);
   }
 
   function drawGearShop() {
@@ -3469,14 +4840,14 @@
     ctx.fillStyle = "#eceff1";
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("道具店", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 20);
+    ctx.fillText("Gear", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 20);
     ctx.font = "9px sans-serif";
-    ctx.fillText("鏟 $" + SHOVEL_COST + " 剷除", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 38);
-    ctx.fillText("回收 $" + RECLAIMER_COST + " 取種", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 52);
+    ctx.fillText("Shovel $" + SHOVEL_COST + " dig", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 38);
+    ctx.fillText("Recl $" + RECLAIMER_COST + " seed", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 52);
     ctx.fillStyle = "#b0bec5";
     ctx.font = "8px sans-serif";
-    ctx.fillText("靠近開選單", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 68);
-    ctx.fillText("下：收藏箱", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 82);
+    ctx.fillText("Stand here for menu", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 68);
+    ctx.fillText("Below: stash", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 82);
   }
 
   function drawFavoriteBox() {
@@ -3488,11 +4859,11 @@
     ctx.fillStyle = "#ffe0b2";
     ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("收藏箱", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 20);
+    ctx.fillText("Stash", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 20);
     ctx.font = "8px sans-serif";
     ctx.fillStyle = "#bcaaa4";
-    ctx.fillText("50 格 · E 放入", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 38);
-    ctx.fillText("Space 開箱", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 52);
+    ctx.fillText("50 slots · E deposit", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 38);
+    ctx.fillText("Space open", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 52);
   }
 
   function drawSellShop() {
@@ -3504,9 +4875,9 @@
     ctx.fillStyle = "#fff";
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("回收", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 30);
+    ctx.fillText("Sell", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 30);
     ctx.font = "11px sans-serif";
-    ctx.fillText("蜂／蝶／蟲／蜻王／烏鴉", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 50);
+    ctx.fillText("Bee / butterfly / beetle / dragonfly / raven", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 50);
   }
 
   function drawRebirthShop() {
@@ -3519,47 +4890,59 @@
     ctx.font = "bold 12px sans-serif";
     ctx.textAlign = "center";
     const rcx = rebirthShopRect.x + rebirthShopRect.w / 2;
-    ctx.fillText("轉生店", rcx, rebirthShopRect.y + 22);
+    ctx.fillText("Rebirth", rcx, rebirthShopRect.y + 22);
     ctx.font = "9px sans-serif";
     ctx.fillStyle = "#b0bec5";
-    ctx.fillText("生成池升級", rcx, rebirthShopRect.y + 40);
-    ctx.fillText("切換表", rcx, rebirthShopRect.y + 54);
-    ctx.fillText("靠近開選單", rcx, rebirthShopRect.y + 72);
+    ctx.fillText("Pool upgrades", rcx, rebirthShopRect.y + 40);
+    ctx.fillText("Switch table", rcx, rebirthShopRect.y + 54);
+    ctx.fillText("Stand here for menu", rcx, rebirthShopRect.y + 72);
   }
 
   function drawSpawner() {
-    ctx.fillStyle = "#0d0d0d";
+    ctx.fillStyle = isOceanMap() ? "#1565c0" : "#0d0d0d";
     ctx.fillRect(spawnerRect.x, spawnerRect.y, spawnerRect.w, spawnerRect.h);
-    ctx.strokeStyle = "#333";
+    ctx.strokeStyle = isOceanMap() ? "#42a5f5" : "#333";
     ctx.strokeRect(spawnerRect.x, spawnerRect.y, spawnerRect.w, spawnerRect.h);
     ctx.fillStyle = "#666";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
     const cx = spawnerRect.x + spawnerRect.w / 2;
-    ctx.fillText("生成", cx, spawnerRect.y + 14);
+    ctx.fillText("Spawn", cx, spawnerRect.y + 12);
     ctx.font = "9px sans-serif";
     ctx.fillStyle = "#8bc34a";
-    ctx.fillText("~" + getSpawnIntervalSec().toFixed(1).replace(/\.0$/, "") + "s／隻", cx, spawnerRect.y + 28);
-    const untilBoss = Math.max(0, KILLS_PER_DRAGONFLY_BOSS - defeatCount);
-    ctx.font = "8px sans-serif";
-    ctx.fillStyle = "#ffcc80";
+    ctx.fillText("~" + getSpawnIntervalSec().toFixed(1).replace(/\.0$/, "") + "s each", cx, spawnerRect.y + 24);
     syncSpawnTableState();
-    const bossLine =
-      activeSpawnTable === 1 && spawnerUpgradeOwned
-        ? "距鷹：還需 " + untilBoss + " 隻"
-        : "距蜻蜓王：還需 " + untilBoss + " 隻";
-    ctx.fillText(bossLine, cx, spawnerRect.y + 42);
-    const poolLabel =
-      activeSpawnTable === 1 && spawnerUpgradeOwned ? "池：Upgrade 1" : "池：Default";
-    ctx.fillStyle = "#90a4ae";
-    ctx.fillText(poolLabel, cx, spawnerRect.y + 52);
+    ctx.font = "7px sans-serif";
+    ctx.fillStyle = "#ffcc80";
+    if (activeSpawnTable === 2 && beachRebirthOwned) {
+      const hm = beachTotalKills % KILLS_PER_HAMMERHEAD_BOSS;
+      const uh = hm === 0 ? KILLS_PER_HAMMERHEAD_BOSS : KILLS_PER_HAMMERHEAD_BOSS - hm;
+      const gm = beachTotalKills % KILLS_PER_GREAT_WHITE_BOSS;
+      const ugw = gm === 0 ? KILLS_PER_GREAT_WHITE_BOSS : KILLS_PER_GREAT_WHITE_BOSS - gm;
+      ctx.fillText("To hammerhead: " + uh + " kills", cx, spawnerRect.y + 38);
+      ctx.fillStyle = "#ffe082";
+      ctx.fillText("To great white: " + ugw + " kills", cx, spawnerRect.y + 50);
+      ctx.fillStyle = "#b3e5fc";
+      ctx.fillText("Pool: Beach ocean", cx, spawnerRect.y + 62);
+    } else {
+      const untilBoss = Math.max(0, KILLS_PER_DRAGONFLY_BOSS - defeatCount);
+      const bossLine =
+        activeSpawnTable === 1 && spawnerUpgradeOwned
+          ? "To hawk: " + untilBoss + " kills left"
+          : "To dragonfly boss: " + untilBoss + " kills left";
+      ctx.fillText(bossLine, cx, spawnerRect.y + 38);
+      const poolLabel =
+        activeSpawnTable === 1 && spawnerUpgradeOwned ? "Pool: Upgrade" : "Pool: Default";
+      ctx.fillStyle = "#90a4ae";
+      ctx.fillText(poolLabel, cx, spawnerRect.y + 50);
+    }
   }
 
   function drawGraySlots() {
     graySlots.forEach((s, i) => {
-      ctx.fillStyle = "#6a6a6a";
+      ctx.fillStyle = isOceanMap() ? "#c4b59a" : "#6a6a6a";
       ctx.fillRect(s.x, s.y, s.w, s.h);
-      ctx.strokeStyle = "#444";
+      ctx.strokeStyle = isOceanMap() ? "#6d4c41" : "#444";
       ctx.strokeRect(s.x, s.y, s.w, s.h);
       if (s.locked) {
         const lx = s.x + s.w / 2;
@@ -3601,6 +4984,20 @@
           drawRobinWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "robin" }, false, 0.38 * ms);
         } else if (s.worker === "hawk") {
           drawHawkWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "hawk" }, false, 0.32 * ms);
+        } else if (s.worker === "mackerel") {
+          drawMackerelWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "mackerel" }, false, 0.36 * ms);
+        } else if (s.worker === "clownfish") {
+          drawClownfishWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "clownfish" }, false, 0.35 * ms);
+        } else if (s.worker === "lionfish") {
+          drawLionfishWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "lionfish" }, false, 0.34 * ms);
+        } else if (s.worker === "lemon_shark") {
+          drawLemonSharkWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "lemon_shark" }, false, 0.3 * ms);
+        } else if (s.worker === "eel") {
+          drawEelWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "eel" }, false, 0.32 * ms);
+        } else if (s.worker === "hammerhead") {
+          drawHammerheadWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "hammerhead" }, false, 0.26 * ms);
+        } else if (s.worker === "great_white") {
+          drawGreatWhiteWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "great_white" }, false, 0.22 * ms);
         }
         ctx.fillStyle = "#000";
         ctx.font = "bold 8px sans-serif";
@@ -3613,7 +5010,7 @@
     ctx.fillStyle = "#aaa";
     ctx.font = "12px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("後方放置區 · 有工人 E 收回 · 鎖定格 R 購買", GRID_X + (COLS * CELL) / 2, grayRowY - 8);
+    ctx.fillText("Gray slots · E pick up worker · locked: R to buy", GRID_X + (COLS * CELL) / 2, grayRowY - 8);
   }
 
   function drawPlayer() {
@@ -3631,7 +5028,7 @@
     ctx.font = "13px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(
-      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨／鳳梨近戰 · 種下時 5% 巨型 · 敵 5% 巨型（灰格 2× 錢）· 左下道具店（鏟／回收器）· 其下收藏箱 E 存入 Space 開箱 · 解鎖道 −1 秒 · 百隻擊殺王怪 · 右下轉生店",
+      "Center lane starts unlocked · strawberry/grape shoot · fern/pineapple melee · 5% mega plants · 5% mega mobs (2× gray $) · gear shop shovel/reclaimer · stash E / Space · each lane −1s spawn · 100 kills boss · rebirth bottom-right · ocean: sea grass on empty tiles",
       GRID_X,
       GRID_Y - 92
     );
@@ -3649,13 +5046,24 @@
       saveGame();
     }
 
-    ctx.fillStyle = "#252b20";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (isOceanMap()) {
+      const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bg.addColorStop(0, "#87ceeb");
+      bg.addColorStop(0.42, "#b3e5fc");
+      bg.addColorStop(0.72, "#d7ccc8");
+      bg.addColorStop(1, "#efebe9");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "#252b20";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     drawLabels();
     drawGraySlots();
     drawGrid();
     drawPlants();
+    drawSeaGrass();
     for (const pr of projectiles) drawProjectile(pr);
     drawSpawner();
     drawShop();
@@ -3681,6 +5089,7 @@
   if (reclaimerPriceEl) reclaimerPriceEl.textContent = String(RECLAIMER_COST);
   if (pineapplePriceEl) pineapplePriceEl.textContent = String(PINEAPPLE_COST);
   if (appleTreePriceEl) appleTreePriceEl.textContent = String(APPLE_TREE_COST);
+  if (coralPriceEl) coralPriceEl.textContent = String(CORAL_COST);
 
   buildInvSlots();
   if (favoriteGridEl) {
@@ -3691,7 +5100,9 @@
     });
   }
   loadGame();
+  lastWasOceanMap = isOceanMap();
   refreshInvUi();
+  syncShopCoralButton();
   updateRebirthModal();
   requestAnimationFrame(loop);
 })();

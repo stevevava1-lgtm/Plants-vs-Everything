@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,31 +9,31 @@
 <body>
   <div id="hud">
     <div class="hud-main">
-      <div id="money">金錢：$<span id="moneyVal">20</span></div>
-      <div id="hint">WASD · <strong>B</strong> 背包 · 綠格 <strong>E</strong> 種植／鏟除／<strong>回收器取種</strong> · 灰格 <strong>E</strong> · <strong>R</strong> 解鎖 · 左植物店 · 左下道具店＋收藏箱（<strong>E</strong> 存入 · <strong>Space</strong> 開箱）· 右回收 · 右下轉生店</div>
+      <div id="money">Cash: $<span id="moneyVal">20</span></div>
+      <div id="hint">WASD · <strong>B</strong> backpack · green tiles <strong>E</strong> plant / dig / <strong>reclaimer seed</strong> · gray <strong>E</strong> · <strong>R</strong> unlock · left plant shop · bottom-left gear + stash (<strong>E</strong> deposit · <strong>Space</strong> stash) · right sell · bottom-right rebirth</div>
     </div>
-    <button type="button" id="btnSettings" class="settings-btn" title="設定" aria-label="設定">⚙</button>
+    <button type="button" id="btnSettings" class="settings-btn" title="Settings" aria-label="Settings">⚙</button>
   </div>
   <div id="gameWrap">
     <canvas id="game" width="960" height="640"></canvas>
   </div>
 
   <div id="inventoryPanel" class="collapsed" aria-hidden="true">
-    <h2 class="backpack-title">背包</h2>
-    <button type="button" id="btnCloseBackpack" class="backpack-close" title="關閉背包">×</button>
+    <h2 class="backpack-title">Backpack</h2>
+    <button type="button" id="btnCloseBackpack" class="backpack-close" title="Close backpack">×</button>
     <div class="inv-section">
-      <h3>植物（<span id="plantCount">0</span> / 10）</h3>
-      <p class="inv-sub">點一下選取苗後到綠格按 E 種植。商店苗有 5% 在「種下時」變巨型；兌換的 2× 蕨種子種下必為巨型</p>
+      <h3>Plants (<span id="plantCount">0</span> / 10)</h3>
+      <p class="inv-sub">Click a seed, then press E on a green tile. Shop seeds have a 5% mega roll when planted; redeemed 2× fern seeds are always mega.</p>
       <div id="plantSlots" class="inv-row plant-row"></div>
     </div>
     <div class="inv-section inv-section-gears">
-      <h3>道具 · 鏟 <span id="shovelStackCount">0</span> · 回收器 <span id="reclaimerStackCount">0</span></h3>
-      <p class="inv-sub">點選鏟子：對植株 <strong>E</strong> 剷除。點選回收器：對植株 <strong>E</strong> 摧毀並取回種子（背包滿則不消耗）。</p>
+      <h3>Gear · Shovel <span id="shovelStackCount">0</span> · Reclaimer <span id="reclaimerStackCount">0</span></h3>
+      <p class="inv-sub">Select shovel: press <strong>E</strong> on a plant to dig. Select reclaimer: press <strong>E</strong> to destroy and recover seed (no use if plant bag full).</p>
       <div id="gearSlots" class="inv-row gear-row"></div>
     </div>
     <div class="inv-section">
-      <h3>敵人（<span id="enemyCount">0</span> / 100）</h3>
-      <p class="inv-sub">點一下選取單位；可到右側「回收」賣掉（含蜥蜴／蛇／冠藍鴉等）</p>
+      <h3>Enemies (<span id="enemyCount">0</span> / 100)</h3>
+      <p class="inv-sub">Click a unit; sell at the right-side shop (lizards, snakes, jays, etc.)</p>
       <div id="enemySlots" class="enemy-grid"></div>
     </div>
   </div>
@@ -42,85 +42,105 @@
 
   <div id="shopModal" class="modal hidden">
     <div class="modal-inner">
-      <h2>商店</h2>
-      <p>草莓苗 — $<span id="shopPrice">20</span>（射擊，5 秒成熟）</p>
-      <button type="button" id="btnBuy">購買草莓苗</button>
-      <p>蕨類幼苗 — $<span id="fernPrice">50</span>（近戰 2／秒，10 秒成熟）</p>
-      <button type="button" id="btnBuyFern">購買蕨類</button>
-      <p>葡萄苗 — $<span id="grapePrice">500</span>（紫色子彈，每 0.3 秒 1 傷害，15 秒成熟）</p>
-      <button type="button" id="btnBuyGrape">購買葡萄苗</button>
-      <p>鳳梨苗 — $<span id="pineapplePrice">2000</span>（近戰 15／秒，12 秒成熟，判定距離同蕨類）</p>
-      <button type="button" id="btnBuyPineapple">購買鳳梨苗</button>
-      <p>蘋果樹苗 — $<span id="appleTreePrice">5000</span>（每秒 1 顆蘋果，每顆 15 傷害，18 秒成熟）</p>
-      <button type="button" id="btnBuyAppleTree">購買蘋果樹苗</button>
-      <button type="button" id="btnClose">關閉</button>
+      <h2>Shop</h2>
+      <p>Strawberry — $<span id="shopPrice">20</span> (shoots, 5s grow)</p>
+      <button type="button" id="btnBuy">Buy strawberry</button>
+      <p>Fern — $<span id="fernPrice">50</span> (melee 2/s, 10s grow)</p>
+      <button type="button" id="btnBuyFern">Buy fern</button>
+      <p>Grape — $<span id="grapePrice">500</span> (purple shots, 1 dmg / 0.3s, 15s grow)</p>
+      <button type="button" id="btnBuyGrape">Buy grape</button>
+      <p>Pineapple — $<span id="pineapplePrice">2000</span> (melee 15/s, 12s grow, same range as fern)</p>
+      <button type="button" id="btnBuyPineapple">Buy pineapple</button>
+      <p>Apple tree — $<span id="appleTreePrice">5000</span> (1 apple/s, 15 dmg each, 18s grow)</p>
+      <button type="button" id="btnBuyAppleTree">Buy apple tree</button>
+      <p>Coral — $<span id="coralPrice">5000</span> (ocean map only; melee 30/s, 12s grow; weak off-ocean)</p>
+      <button type="button" id="btnBuyCoral" disabled>Buy coral</button>
+      <button type="button" id="btnClose">Close</button>
     </div>
   </div>
 
   <div id="settingsModal" class="modal modal-settings hidden">
     <div class="modal-inner settings-inner">
-      <h2>設定</h2>
+      <h2>Settings</h2>
 
       <section class="settings-block">
-        <h3 class="settings-title">兌換碼</h3>
-        <p class="settings-desc">區分大小寫；每組代碼僅能成功兌換一次。清除遊戲進度不會重置已兌換紀錄。</p>
+        <h3 class="settings-title">Enemy index</h3>
+        <p class="settings-desc">All enemy types. Ones you have never held show as ?.</p>
+        <button type="button" id="btnOpenEnemyDex" class="btn-open-dex">Open enemy index</button>
+      </section>
+
+      <section class="settings-block">
+        <h3 class="settings-title">Redeem code</h3>
+        <p class="settings-desc">Case-sensitive; each code works once. Wiping save does not reset redeemed codes.</p>
         <div class="code-row">
-          <input type="text" id="codeInput" class="code-input" placeholder="輸入代碼" autocomplete="off" spellcheck="false" />
-          <button type="button" id="btnRedeemCode">兌換</button>
+          <input type="text" id="codeInput" class="code-input" placeholder="Enter code" autocomplete="off" spellcheck="false" />
+          <button type="button" id="btnRedeemCode">Redeem</button>
         </div>
       </section>
 
       <section class="settings-block settings-block-danger">
-        <h3 class="settings-title">清除進度</h3>
-        <p class="settings-desc">刪除本地遊戲存檔並重新載入。</p>
-        <button type="button" id="btnWipeProgress" class="btn-danger">清除遊戲進度</button>
+        <h3 class="settings-title">Clear progress</h3>
+        <p class="settings-desc">Deletes local save and reloads the page.</p>
+        <button type="button" id="btnWipeProgress" class="btn-danger">Clear all progress</button>
       </section>
 
-      <button type="button" id="btnCloseSettings" class="btn-close-settings">關閉</button>
+      <button type="button" id="btnCloseSettings" class="btn-close-settings">Close</button>
     </div>
   </div>
 
   <div id="gearModal" class="modal hidden">
     <div class="modal-inner">
-      <h2>道具店</h2>
-      <p>鏟子 — $<span id="shovelPrice">35</span>（疊加；選取後對植株按 E 剷除，每次一把）</p>
-      <button type="button" id="btnBuyShovel">購買鏟子</button>
-      <p>回收器 — $<span id="reclaimerPrice">100</span>（疊加；選取後對植株按 E 摧毀並取回對應種子；植物背包滿時不會消耗回收器）</p>
-      <button type="button" id="btnBuyReclaimer">購買回收器</button>
-      <button type="button" id="btnCloseGear">關閉</button>
+      <h2>Gear shop</h2>
+      <p>Shovel — $<span id="shovelPrice">35</span> (stacks; select then E on plant, one per use)</p>
+      <button type="button" id="btnBuyShovel">Buy shovel</button>
+      <p>Reclaimer — $<span id="reclaimerPrice">100</span> (stacks; E to destroy plant and recover seed; not consumed if plant bag full)</p>
+      <button type="button" id="btnBuyReclaimer">Buy reclaimer</button>
+      <button type="button" id="btnCloseGear">Close</button>
     </div>
   </div>
 
   <div id="favoriteModal" class="modal hidden">
     <div class="modal-inner modal-inner-favorite">
-      <h2>收藏箱（50 格）</h2>
-      <p class="inv-sub">點格取回背包。植物滿／敵人滿時無法取出。</p>
-      <div id="favoriteGrid" class="favorite-grid" role="grid" aria-label="收藏箱"></div>
-      <button type="button" id="btnCloseFavorite">關閉</button>
+      <h2>Stash (50 slots)</h2>
+      <p class="inv-sub">Click a slot to retrieve. Blocked if plant or enemy bag is full.</p>
+      <div id="favoriteGrid" class="favorite-grid" role="grid" aria-label="Stash"></div>
+      <button type="button" id="btnCloseFavorite">Close</button>
     </div>
   </div>
 
   <div id="sellModal" class="modal hidden">
     <div class="modal-inner">
-      <h2>回收店</h2>
-      <p>蜜蜂 $<span id="sellPrice">8</span> · 蝴蝶 $<span id="sellButterflyPrice">15</span> · 甲蟲 $<span id="sellBeetlePrice">12</span> · 蜻蜓王 $<span id="sellDragonflyPrice">60</span> · 烏鴉 $<span id="sellRavenPrice">80</span> · 蜥蜴 $<span id="sellLizardPrice">22</span> · 蛇 $<span id="sellSnakePrice">35</span> · 冠藍鴉 $<span id="sellJayPrice">52</span> · 知更鳥 $<span id="sellRobinPrice">48</span> · 鷹 $<span id="sellHawkPrice">95</span>（巨型敵回收價 2×）</p>
-      <p class="inv-sub">可選取／自動賣一隻／全部賣出</p>
-      <button type="button" id="btnSellSelected">賣出選取的單位</button>
-      <button type="button" id="btnSellOne">賣出一隻（自動）</button>
-      <button type="button" id="btnSellAll">全部賣出</button>
-      <button type="button" id="btnCloseSell">關閉</button>
+      <h2>Sell shop</h2>
+      <p>Bee $<span id="sellPrice">8</span> · Butterfly $<span id="sellButterflyPrice">15</span> · Beetle $<span id="sellBeetlePrice">12</span> · Dragonfly $<span id="sellDragonflyPrice">60</span> · Raven $<span id="sellRavenPrice">80</span> · Lizard $<span id="sellLizardPrice">22</span> · Snake $<span id="sellSnakePrice">35</span> · Jay $<span id="sellJayPrice">52</span> · Robin $<span id="sellRobinPrice">48</span> · Hawk $<span id="sellHawkPrice">95</span> (mega enemies 2× sell)</p>
+      <p class="inv-sub">Selected / sell one / sell all</p>
+      <button type="button" id="btnSellSelected">Sell selected</button>
+      <button type="button" id="btnSellOne">Sell one (auto)</button>
+      <button type="button" id="btnSellAll">Sell all</button>
+      <button type="button" id="btnCloseSell">Close</button>
+    </div>
+  </div>
+
+  <div id="enemyDexModal" class="modal hidden">
+    <div class="modal-inner modal-inner-enemy-dex">
+      <h2>Enemy index</h2>
+      <p class="inv-sub">Types you have held in your bag, on a gray slot, or in stash stay revealed. Others stay ?.</p>
+      <div id="enemyDexGrid" class="enemy-dex-grid" role="list" aria-label="Enemy collection"></div>
+      <button type="button" id="btnCloseEnemyDex">Close</button>
     </div>
   </div>
 
   <div id="rebirthModal" class="modal hidden">
     <div class="modal-inner">
-      <h2>轉生店 · 生成池</h2>
-      <p>支付背包內 <strong>3 隻蜻蜓王</strong> 與 <strong>$4000</strong>，永久解鎖「Upgrade 1」生成表（蜥蜴／蛇／冠藍鴉／知更鳥；百隻擊殺改召鷹）。</p>
-      <button type="button" id="btnUnlockSpawner">解鎖（3×蜻蜓王 + $4000）</button>
-      <p>切換目前生成表：</p>
-      <button type="button" id="btnSpawnerDefault">Default（舊表）</button>
-      <button type="button" id="btnSpawnerUpgrade">Upgrade 1（新表）</button>
-      <button type="button" id="btnCloseRebirth">關閉</button>
+      <h2>Rebirth · Spawn pools</h2>
+      <p>Pay <strong>3 dragonflies</strong> in bag + <strong>$4000</strong> to unlock <strong>Upgrade 1</strong> forever (lizard / snake / jay / robin; every 100 kills spawns hawk).</p>
+      <button type="button" id="btnUnlockSpawner">Unlock (3× dragonfly + $4000)</button>
+      <p>Beach rebirth: <strong>3 hawks</strong>, <strong>5 robins</strong>, <strong>$100000</strong> — unlocks beach map and ocean fish (hammerhead / great white milestones).</p>
+      <button type="button" id="btnUnlockBeach">Unlock beach (3× hawk + 5× robin + $100000)</button>
+      <p>Active pool:</p>
+      <button type="button" id="btnSpawnerDefault">Default (classic)</button>
+      <button type="button" id="btnSpawnerUpgrade">Upgrade 1</button>
+      <button type="button" id="btnSpawnerBeach">Beach ocean</button>
+      <button type="button" id="btnCloseRebirth">Close</button>
     </div>
   </div>
   <script src="game.js"></script>
