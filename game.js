@@ -22,8 +22,13 @@
   const pineapplePriceEl = document.getElementById("pineapplePrice");
   const btnClose = document.getElementById("btnClose");
   const btnBuyShovel = document.getElementById("btnBuyShovel");
+  const btnBuyReclaimer = document.getElementById("btnBuyReclaimer");
   const btnCloseGear = document.getElementById("btnCloseGear");
   const shovelPriceEl = document.getElementById("shovelPrice");
+  const reclaimerPriceEl = document.getElementById("reclaimerPrice");
+  const favoriteModal = document.getElementById("favoriteModal");
+  const favoriteGridEl = document.getElementById("favoriteGrid");
+  const btnCloseFavorite = document.getElementById("btnCloseFavorite");
   const btnSellSelected = document.getElementById("btnSellSelected");
   const btnSellOne = document.getElementById("btnSellOne");
   const btnSellAll = document.getElementById("btnSellAll");
@@ -46,6 +51,8 @@
   const sellLizardPriceEl = document.getElementById("sellLizardPrice");
   const sellSnakePriceEl = document.getElementById("sellSnakePrice");
   const sellJayPriceEl = document.getElementById("sellJayPrice");
+  const sellRobinPriceEl = document.getElementById("sellRobinPrice");
+  const sellHawkPriceEl = document.getElementById("sellHawkPrice");
 
   const PLANT_SLOTS = 10;
   const ENEMY_SLOTS = 100;
@@ -78,6 +85,8 @@
   const GROW_TIME_PINEAPPLE = 12;
   const PINEAPPLE_DPS = 15;
   const SHOVEL_COST = 35;
+  const RECLAIMER_COST = 100;
+  const FAVORITE_SLOTS = 50;
   /** 蕨類／鳳梨近戰：同欄、在植株前方（靠生成端）的距離內 */
   const FERN_MELEE_RANGE = 72;
   const SPAWN_INTERVAL_BASE = 7;
@@ -117,6 +126,16 @@
   const JAY_SPEED = 22;
   const JAY_DOLLAR_PER_SEC = 15;
   const SELL_JAY_PRICE = 52;
+  const ROBIN_HP = 120;
+  const ROBIN_SPEED = 28;
+  const ROBIN_DOLLAR_PER_SEC = 17;
+  const SELL_ROBIN_PRICE = 48;
+  const HAWK_HP = 300;
+  const HAWK_SPEED = 22;
+  const HAWK_DOLLAR_PER_SEC = 21;
+  const SELL_HAWK_PRICE = 95;
+  /** 生成怪 5% 巨型：2× 繪製、灰格收入 2× */
+  const MEGA_MOB_CHANCE = 0.05;
   /** 轉生店：解鎖升級生成池 */
   const SPAWNER_UPGRADE_COST_MONEY = 4000;
   const SPAWNER_UPGRADE_DRAGONFLIES = 3;
@@ -127,11 +146,12 @@
     { type: "butterfly", weight: 2 },
     { type: "beetle", weight: 1 },
   ];
-  /** 升級池：蜥蜴為主體，蛇約 1/4，冠藍鴉約 1/10（權重 13:5:2） */
+  /** 升級池：總權重 50，知更鳥 1／50；其餘維持原比例縮放 */
   const MOB_SPAWN_WEIGHTS_UPGRADE = [
-    { type: "lizard", weight: 13 },
-    { type: "snake", weight: 5 },
-    { type: "jay", weight: 2 },
+    { type: "lizard", weight: 32 },
+    { type: "snake", weight: 12 },
+    { type: "jay", weight: 5 },
+    { type: "robin", weight: 1 },
   ];
 
   /** 灰格 1 免費；格 2～10 對應 index 1～9 */
@@ -141,7 +161,8 @@
   const LANE_UNLOCK_PRICE = [300, 600, 1200, 0, 2400, 4800, 9600];
 
   const shopRect = { x: 40, y: 208, w: 100, h: 158 };
-  const gearShopRect = { x: 40, y: 378, w: 100, h: 86 };
+  const gearShopRect = { x: 40, y: 378, w: 100, h: 100 };
+  const favoriteBoxRect = { x: 40, y: 482, w: 100, h: 72 };
   const sellShopRect = { x: 780, y: 220, w: 100, h: 140 };
   const rebirthShopRect = { x: 780, y: 365, w: 100, h: 96 };
   const spawnerRect = {
@@ -165,8 +186,9 @@
       w: GRAY_SLOT_W,
       h: GRAY_SLOT_W,
       locked: i !== 0,
-      /** @type {null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} */
+      /** @type {null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk'} */
       worker: null,
+      workerMega: false,
     });
   }
 
@@ -175,15 +197,19 @@
 
   /** @type {(null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple')[]} */
   const plantInv = new Array(PLANT_SLOTS).fill(null);
-  /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly')[]} */
+  /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk')[]} */
   const enemyInv = new Array(ENEMY_SLOTS).fill(null);
+  const enemyInvMega = new Array(ENEMY_SLOTS).fill(false);
 
   let selectedPlantSlot = -1;
   let selectedEnemySlot = -1;
-  /** @type {null | 'shovel'} */
+  /** @type {null | 'shovel' | 'reclaimer'} */
   let selectedGear = null;
   let shovelCount = 0;
-  /** @type {null | 'buy' | 'sell' | 'gear' | 'rebirth'} */
+  let reclaimerCount = 0;
+  /** @type {({ cat: 'plant' | 'enemy', item: string, mega?: boolean } | null)[]} */
+  const favoriteBox = new Array(FAVORITE_SLOTS).fill(null);
+  /** @type {null | 'buy' | 'sell' | 'gear' | 'rebirth' | 'favorite'} */
   let activeModal = null;
   let money = 20;
   let invPanelVisible = false;
@@ -205,7 +231,7 @@
   /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple', growLeft: number, mature: boolean, shootCd: number, mega?: boolean }[]} */
   const plants = [];
 
-  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay', lane: number }[]} */
+  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk', lane: number, mega?: boolean }[]} */
   const mobs = [];
 
   /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number, src?: 'strawberry' | 'grape' }[]} */
@@ -231,8 +257,28 @@
       w === "dragonfly" ||
       w === "lizard" ||
       w === "snake" ||
-      w === "jay"
+      w === "jay" ||
+      w === "robin" ||
+      w === "hawk"
     );
+  }
+
+  function enemyMobDrawScale(m) {
+    return m.mega ? 2 : 1;
+  }
+
+  function dollarPerSecForGrayWorker(worker) {
+    if (worker === "bee") return BEE_DOLLAR_PER_SEC;
+    if (worker === "butterfly") return BUTTERFLY_DOLLAR_PER_SEC;
+    if (worker === "raven") return RAVEN_DOLLAR_PER_SEC;
+    if (worker === "beetle") return BEETLE_DOLLAR_PER_SEC;
+    if (worker === "dragonfly") return DRAGONFLY_DOLLAR_PER_SEC;
+    if (worker === "lizard") return LIZARD_DOLLAR_PER_SEC;
+    if (worker === "snake") return SNAKE_DOLLAR_PER_SEC;
+    if (worker === "jay") return JAY_DOLLAR_PER_SEC;
+    if (worker === "robin") return ROBIN_DOLLAR_PER_SEC;
+    if (worker === "hawk") return HAWK_DOLLAR_PER_SEC;
+    return 0;
   }
 
   function countDragonfliesInInv() {
@@ -245,6 +291,7 @@
     for (let i = 0; i < enemyInv.length && left > 0; i++) {
       if (enemyInv[i] === "dragonfly") {
         enemyInv[i] = null;
+        enemyInvMega[i] = false;
         left--;
       }
     }
@@ -294,6 +341,7 @@
     }
     const cx = laneCenterX(lane);
     const sy = spawnerRect.y - 8;
+    const mega = Math.random() < MEGA_MOB_CHANCE;
     mobs.push({
       x: cx,
       y: sy,
@@ -301,15 +349,39 @@
       speed: DRAGONFLY_SPEED,
       type: "dragonfly",
       lane,
+      mega,
     });
     showSuccess("蜻蜓王出現！紅身綠翅，請小心應對。");
+  }
+
+  function trySpawnHawkBoss() {
+    const lane = pickRandomOpenLane();
+    if (lane < 0) {
+      showWarning("沒有已解鎖的種植道，鷹無法出現！");
+      return;
+    }
+    const cx = laneCenterX(lane);
+    const sy = spawnerRect.y - 8;
+    const mega = Math.random() < MEGA_MOB_CHANCE;
+    mobs.push({
+      x: cx,
+      y: sy,
+      hp: HAWK_HP,
+      speed: HAWK_SPEED,
+      type: "hawk",
+      lane,
+      mega,
+    });
+    showSuccess("鷹出現！高空猛禽，請小心應對。");
   }
 
   function registerEnemyDefeatForBoss() {
     defeatCount += 1;
     while (defeatCount >= KILLS_PER_DRAGONFLY_BOSS) {
       defeatCount -= KILLS_PER_DRAGONFLY_BOSS;
-      trySpawnDragonflyBoss();
+      syncSpawnTableState();
+      if (activeSpawnTable === 1 && spawnerUpgradeOwned) trySpawnHawkBoss();
+      else trySpawnDragonflyBoss();
     }
   }
 
@@ -318,9 +390,14 @@
       v: 1,
       money,
       laneUnlocked: laneUnlocked.slice(),
-      gray: graySlots.map((s) => ({ locked: !!s.locked, worker: s.worker })),
+      gray: graySlots.map((s) => ({
+        locked: !!s.locked,
+        worker: s.worker,
+        workerMega: !!s.workerMega,
+      })),
       plantInv: plantInv.slice(),
       enemyInv: enemyInv.slice(),
+      enemyInvMega: enemyInvMega.slice(),
       plants: plants.map((p) => ({
         row: p.row,
         col: p.col,
@@ -337,6 +414,7 @@
         speed: m.speed,
         type: m.type,
         lane: m.lane,
+        mega: !!m.mega,
       })),
       projectiles: projectiles.map((pr) => ({
         x: pr.x,
@@ -352,6 +430,10 @@
       anyMaturePlant,
       defeatCount,
       shovelCount,
+      reclaimerCount,
+      favorites: favoriteBox.map((e) =>
+        e ? { cat: e.cat, item: e.item, mega: e.cat === "enemy" && e.mega ? true : undefined } : null
+      ),
       spawnerUpgradeOwned,
       activeSpawnTable,
     };
@@ -372,6 +454,7 @@
           graySlots[i].locked = g.locked;
           const w = g.worker;
           graySlots[i].worker = isValidEnemyWorker(w) ? w : null;
+          graySlots[i].workerMega = !!(g.workerMega && graySlots[i].worker);
         });
       }
 
@@ -388,6 +471,13 @@
           const t = raw.enemyInv[i];
           enemyInv[i] = isValidEnemyWorker(t) ? t : null;
         }
+      }
+      if (Array.isArray(raw.enemyInvMega) && raw.enemyInvMega.length === ENEMY_SLOTS) {
+        for (let i = 0; i < ENEMY_SLOTS; i++) {
+          enemyInvMega[i] = !!(raw.enemyInvMega[i] && enemyInv[i]);
+        }
+      } else {
+        for (let i = 0; i < ENEMY_SLOTS; i++) enemyInvMega[i] = false;
       }
 
       plants.length = 0;
@@ -447,6 +537,14 @@
             typ = "jay";
             spd = JAY_SPEED;
             maxHp = JAY_HP;
+          } else if (m.type === "robin") {
+            typ = "robin";
+            spd = ROBIN_SPEED;
+            maxHp = ROBIN_HP;
+          } else if (m.type === "hawk") {
+            typ = "hawk";
+            spd = HAWK_SPEED;
+            maxHp = HAWK_HP;
           } else if (m.type === "butterfly") {
             typ = "butterfly";
             spd = 34;
@@ -466,6 +564,7 @@
             speed: spd,
             type: typ,
             lane,
+            mega: !!m.mega,
           });
         }
       }
@@ -499,6 +598,20 @@
       if (typeof raw.spawnAcc === "number" && isFinite(raw.spawnAcc)) spawnAcc = Math.max(0, raw.spawnAcc);
       if (typeof raw.shovelCount === "number" && isFinite(raw.shovelCount)) {
         shovelCount = Math.max(0, Math.floor(raw.shovelCount));
+      }
+      if (typeof raw.reclaimerCount === "number" && isFinite(raw.reclaimerCount)) {
+        reclaimerCount = Math.max(0, Math.floor(raw.reclaimerCount));
+      }
+      if (Array.isArray(raw.favorites) && raw.favorites.length === FAVORITE_SLOTS) {
+        for (let i = 0; i < FAVORITE_SLOTS; i++) {
+          const e = raw.favorites[i];
+          if (!isValidFavoriteEntry(e)) {
+            favoriteBox[i] = null;
+            continue;
+          }
+          const mega = e.cat === "enemy" && e.mega ? true : undefined;
+          favoriteBox[i] = mega ? { cat: e.cat, item: e.item, mega } : { cat: e.cat, item: e.item };
+        }
       }
       if (typeof raw.defeatCount === "number" && isFinite(raw.defeatCount)) {
         let dc = Math.floor(raw.defeatCount);
@@ -626,6 +739,44 @@
     return plantInv.indexOf(null) !== -1;
   }
 
+  function isValidPlantInvToken(t) {
+    return (
+      t === "seed" ||
+      t === "fern" ||
+      t === "fern_mega" ||
+      t === "grape" ||
+      t === "pineapple"
+    );
+  }
+
+  function isValidFavoriteEntry(e) {
+    if (!e || typeof e !== "object") return false;
+    if (e.cat === "plant" && typeof e.item === "string" && isValidPlantInvToken(e.item)) return true;
+    if (e.cat === "enemy" && typeof e.item === "string" && isValidEnemyWorker(e.item)) {
+      if (e.mega != null && typeof e.mega !== "boolean") return false;
+      return true;
+    }
+    return false;
+  }
+
+  /** 將田上植株還原為背包種子類型（巨型蕨 → fern_mega） */
+  function plantToSeedItem(p) {
+    const k = p.kind || "strawberry";
+    if (k === "strawberry") return "seed";
+    if (k === "fern") return p.mega ? "fern_mega" : "fern";
+    if (k === "grape") return "grape";
+    if (k === "pineapple") return "pineapple";
+    return "seed";
+  }
+
+  /** @returns {boolean} 是否成功放入（不呼叫 refreshInvUi） */
+  function tryAddToPlantInv(item) {
+    const ix = plantInv.indexOf(null);
+    if (ix === -1) return false;
+    plantInv[ix] = item;
+    return true;
+  }
+
   function addPlantFernMega() {
     const idx = plantInv.indexOf(null);
     if (idx === -1) {
@@ -637,8 +788,9 @@
     return true;
   }
 
-  /** @param {'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} kind */
-  function addEnemyToInv(kind) {
+  /** @param {boolean} [mega] */
+  function addEnemyToInv(kind, mega) {
+    if (mega === undefined) mega = false;
     if (!isValidEnemyWorker(kind)) return false;
     const idx = enemyInv.indexOf(null);
     if (idx === -1) {
@@ -646,19 +798,23 @@
       return false;
     }
     enemyInv[idx] = kind;
+    enemyInvMega[idx] = !!mega;
     refreshInvUi();
     return true;
   }
 
-  function sellPriceFor(kind) {
-    if (kind === "butterfly") return SELL_BUTTERFLY_PRICE;
-    if (kind === "raven") return SELL_RAVEN_PRICE;
-    if (kind === "beetle") return SELL_BEETLE_PRICE;
-    if (kind === "dragonfly") return SELL_DRAGONFLY_PRICE;
-    if (kind === "lizard") return SELL_LIZARD_PRICE;
-    if (kind === "snake") return SELL_SNAKE_PRICE;
-    if (kind === "jay") return SELL_JAY_PRICE;
-    return SELL_BEE_PRICE;
+  function sellPriceFor(kind, mega) {
+    let base = SELL_BEE_PRICE;
+    if (kind === "butterfly") base = SELL_BUTTERFLY_PRICE;
+    else if (kind === "raven") base = SELL_RAVEN_PRICE;
+    else if (kind === "beetle") base = SELL_BEETLE_PRICE;
+    else if (kind === "dragonfly") base = SELL_DRAGONFLY_PRICE;
+    else if (kind === "lizard") base = SELL_LIZARD_PRICE;
+    else if (kind === "snake") base = SELL_SNAKE_PRICE;
+    else if (kind === "jay") base = SELL_JAY_PRICE;
+    else if (kind === "robin") base = SELL_ROBIN_PRICE;
+    else if (kind === "hawk") base = SELL_HAWK_PRICE;
+    return mega ? base * 2 : base;
   }
 
   /** @returns {null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple'} */
@@ -704,22 +860,26 @@
     return null;
   }
 
-  /** @returns {null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} */
+  /** @returns {null | { type: string, mega: boolean }} */
   function takeEnemyForWorker() {
     if (selectedEnemySlot >= 0) {
       const t = enemyInv[selectedEnemySlot];
       if (isValidEnemyWorker(t)) {
+        const mega = enemyInvMega[selectedEnemySlot];
         enemyInv[selectedEnemySlot] = null;
+        enemyInvMega[selectedEnemySlot] = false;
         refreshInvUi();
-        return t;
+        return { type: t, mega };
       }
     }
-    for (const typ of ["bee", "butterfly", "beetle", "lizard", "snake", "jay", "dragonfly", "raven"]) {
+    for (const typ of ["bee", "butterfly", "beetle", "lizard", "snake", "jay", "robin", "hawk", "dragonfly", "raven"]) {
       const idx = enemyInv.indexOf(typ);
       if (idx !== -1) {
+        const mega = enemyInvMega[idx];
         enemyInv[idx] = null;
+        enemyInvMega[idx] = false;
         refreshInvUi();
-        return typ;
+        return { type: typ, mega };
       }
     }
     return null;
@@ -734,7 +894,10 @@
     plantCountEl.textContent = String(countPlantInv());
     enemyCountEl.textContent = String(countEnemyInv());
     if (shovelStackCountEl) shovelStackCountEl.textContent = String(shovelCount);
-    if (shovelCount <= 0) selectedGear = null;
+    const reclaimerStackCountEl = document.getElementById("reclaimerStackCount");
+    if (reclaimerStackCountEl) reclaimerStackCountEl.textContent = String(reclaimerCount);
+    if (shovelCount <= 0 && selectedGear === "shovel") selectedGear = null;
+    if (reclaimerCount <= 0 && selectedGear === "reclaimer") selectedGear = null;
 
     const pSlots = plantSlotsEl.querySelectorAll(".inv-slot");
     pSlots.forEach((el, i) => {
@@ -834,46 +997,59 @@
     eSlots.forEach((el, i) => {
       el.classList.toggle("filled", enemyInv[i] !== null);
       el.classList.toggle("selected-enemy", i === selectedEnemySlot);
+      el.classList.toggle("inv-slot-mega", !!enemyInvMega[i] && enemyInv[i] !== null);
       el.innerHTML = "";
+      const em = enemyInvMega[i];
+      const ms = em ? "（巨型）" : "";
       if (enemyInv[i] === "bee") {
         const m = document.createElement("span");
         m.className = "icon-bee";
-        m.title = "蜜蜂";
+        m.title = "蜜蜂" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "butterfly") {
         const m = document.createElement("span");
         m.className = "icon-butterfly";
-        m.title = "蝴蝶";
+        m.title = "蝴蝶" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "raven") {
         const m = document.createElement("span");
         m.className = "icon-raven";
-        m.title = "限定烏鴉";
+        m.title = "限定烏鴉" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "beetle") {
         const m = document.createElement("span");
         m.className = "icon-beetle";
-        m.title = "甲蟲";
+        m.title = "甲蟲" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "dragonfly") {
         const m = document.createElement("span");
         m.className = "icon-dragonfly";
-        m.title = "蜻蜓王";
+        m.title = "蜻蜓王" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "lizard") {
         const m = document.createElement("span");
         m.className = "icon-lizard";
-        m.title = "蜥蜴";
+        m.title = "蜥蜴" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "snake") {
         const m = document.createElement("span");
         m.className = "icon-snake";
-        m.title = "蛇";
+        m.title = "蛇" + ms;
         el.appendChild(m);
       } else if (enemyInv[i] === "jay") {
         const m = document.createElement("span");
         m.className = "icon-jay";
-        m.title = "冠藍鴉";
+        m.title = "冠藍鴉" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "robin") {
+        const m = document.createElement("span");
+        m.className = "icon-robin";
+        m.title = "知更鳥" + ms;
+        el.appendChild(m);
+      } else if (enemyInv[i] === "hawk") {
+        const m = document.createElement("span");
+        m.className = "icon-hawk";
+        m.title = "鷹" + ms;
         el.appendChild(m);
       }
     });
@@ -891,7 +1067,21 @@
         badge.className = "gear-stack-count";
         badge.textContent = "×" + shovelCount;
         gearSlot.appendChild(badge);
-        gearSlot.title = "鏟子 ×" + shovelCount + "（點選後對植株按 E）";
+        gearSlot.title = "鏟子 ×" + shovelCount + "（點選後對植株按 E 剷除）";
+      }
+      const reclaimSlot = gearSlotsEl.querySelector("[data-gear='reclaimer']");
+      if (reclaimSlot) {
+        reclaimSlot.classList.toggle("filled", reclaimerCount > 0);
+        reclaimSlot.classList.toggle("selected-gear", selectedGear === "reclaimer" && reclaimerCount > 0);
+        reclaimSlot.innerHTML = "";
+        const iconR = document.createElement("span");
+        iconR.className = "icon-reclaimer";
+        reclaimSlot.appendChild(iconR);
+        const badgeR = document.createElement("span");
+        badgeR.className = "gear-stack-count";
+        badgeR.textContent = "×" + reclaimerCount;
+        reclaimSlot.appendChild(badgeR);
+        reclaimSlot.title = "回收器 ×" + reclaimerCount + "（點選後對植株按 E 取回種子，每次一個）";
       }
     }
   }
@@ -936,14 +1126,26 @@
       gd.className = "inv-slot gear-slot";
       gd.dataset.gear = "shovel";
       gearSlotsEl.appendChild(gd);
+      const gd2 = document.createElement("div");
+      gd2.className = "inv-slot gear-slot";
+      gd2.dataset.gear = "reclaimer";
+      gearSlotsEl.appendChild(gd2);
       gearSlotsEl.addEventListener("click", (e) => {
         const t = e.target.closest(".inv-slot");
-        if (!t || t.dataset.gear !== "shovel") return;
-        if (shovelCount <= 0) {
-          showWarning("沒有鏟子！到左下「道具店」購買。");
-          return;
+        if (!t || !t.dataset.gear) return;
+        if (t.dataset.gear === "shovel") {
+          if (shovelCount <= 0) {
+            showWarning("沒有鏟子！到左下「道具店」購買。");
+            return;
+          }
+          selectedGear = selectedGear === "shovel" ? null : "shovel";
+        } else if (t.dataset.gear === "reclaimer") {
+          if (reclaimerCount <= 0) {
+            showWarning("沒有回收器！到左下「道具店」購買。");
+            return;
+          }
+          selectedGear = selectedGear === "reclaimer" ? null : "reclaimer";
         }
-        selectedGear = selectedGear === "shovel" ? null : "shovel";
         selectedPlantSlot = -1;
         selectedEnemySlot = -1;
         refreshInvUi();
@@ -1013,6 +1215,10 @@
       rebirthModal.classList.toggle("hidden", mode !== "rebirth");
       if (mode === "rebirth") updateRebirthModal();
     }
+    if (favoriteModal) {
+      favoriteModal.classList.toggle("hidden", mode !== "favorite");
+      if (mode === "favorite") renderFavoriteGrid();
+    }
   }
 
   function closeAllModals() {
@@ -1021,6 +1227,7 @@
     if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
     if (rebirthModal) rebirthModal.classList.add("hidden");
+    if (favoriteModal) favoriteModal.classList.add("hidden");
     settingsModal.classList.add("hidden");
   }
 
@@ -1030,6 +1237,7 @@
     if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
     if (rebirthModal) rebirthModal.classList.add("hidden");
+    if (favoriteModal) favoriteModal.classList.add("hidden");
     settingsModal.classList.remove("hidden");
   }
 
@@ -1051,8 +1259,10 @@
       return false;
     }
     const kind = enemyInv[idx];
+    const mega = enemyInvMega[idx];
     enemyInv[idx] = null;
-    money += sellPriceFor(kind);
+    enemyInvMega[idx] = false;
+    money += sellPriceFor(kind, mega);
     refreshInvUi();
     return true;
   }
@@ -1132,7 +1342,21 @@
       closeAllModals();
     });
   }
+  if (btnBuyReclaimer) {
+    btnBuyReclaimer.addEventListener("click", () => {
+      if (money < RECLAIMER_COST) {
+        showWarning("金錢不足！回收器需 $" + RECLAIMER_COST);
+        closeAllModals();
+        return;
+      }
+      money -= RECLAIMER_COST;
+      reclaimerCount += 1;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
   if (btnCloseGear) btnCloseGear.addEventListener("click", closeAllModals);
+  if (btnCloseFavorite) btnCloseFavorite.addEventListener("click", closeAllModals);
 
   btnSellSelected.addEventListener("click", () => {
     if (selectedEnemySlot < 0 || !isValidEnemyWorker(enemyInv[selectedEnemySlot])) {
@@ -1151,8 +1375,9 @@
     for (let i = 0; i < enemyInv.length; i++) {
       const k = enemyInv[i];
       if (isValidEnemyWorker(k)) {
-        total += sellPriceFor(k);
+        total += sellPriceFor(k, enemyInvMega[i]);
         enemyInv[i] = null;
+        enemyInvMega[i] = false;
       }
     }
     if (total === 0) {
@@ -1302,6 +1527,19 @@
   window.addEventListener("keydown", (e) => {
     keys[e.code] = true;
     if (isTypingInField(e.target)) return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (isUiBlocking()) {
+        if (activeModal === "favorite") closeAllModals();
+        return;
+      }
+      if (
+        rectsOverlap(player.x, player.y, player.r, favoriteBoxRect.x, favoriteBoxRect.y, favoriteBoxRect.w, favoriteBoxRect.h)
+      ) {
+        setActiveModal("favorite");
+      }
+      return;
+    }
     if (e.code === "KeyE") tryInteract();
     if (e.code === "KeyR") tryPurchaseUpgrade();
     if (e.code === "KeyB") {
@@ -1376,8 +1614,108 @@
     }
   }
 
+  function renderFavoriteGrid() {
+    if (!favoriteGridEl) return;
+    favoriteGridEl.innerHTML = "";
+    for (let i = 0; i < FAVORITE_SLOTS; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "favorite-slot-btn";
+      b.dataset.favIdx = String(i);
+      const entry = favoriteBox[i];
+      if (entry) {
+        b.classList.add("has-item");
+        b.textContent = entry.cat === "plant" ? "植" : "敵";
+        b.title =
+          (entry.cat === "plant" ? "植物：" : "敵人：") +
+          entry.item +
+          (entry.cat === "enemy" && entry.mega ? "（巨型）" : "") +
+          "（點擊取回背包）";
+      } else {
+        b.classList.add("empty");
+        b.title = "空格";
+      }
+      favoriteGridEl.appendChild(b);
+    }
+  }
+
+  function tryRetrieveFavoriteSlot(index) {
+    const entry = favoriteBox[index];
+    if (!entry) return;
+    if (entry.cat === "plant") {
+      if (!tryAddToPlantInv(entry.item)) {
+        showWarning("植物背包已滿，無法取回；收藏箱內物品仍保留。");
+        return;
+      }
+    } else {
+      const ix = enemyInv.indexOf(null);
+      if (ix === -1) {
+        showWarning("敵人背包已滿，無法取回；收藏箱內物品仍保留。");
+        return;
+      }
+      enemyInv[ix] = entry.item;
+      enemyInvMega[ix] = !!entry.mega;
+    }
+    favoriteBox[index] = null;
+    refreshInvUi();
+    renderFavoriteGrid();
+    saveGame();
+  }
+
+  /** @returns {boolean} 已處理（含警告） */
+  function tryDepositFavorite() {
+    if (!rectsOverlap(player.x, player.y, player.r, favoriteBoxRect.x, favoriteBoxRect.y, favoriteBoxRect.w, favoriteBoxRect.h)) {
+      return false;
+    }
+    const fi = favoriteBox.indexOf(null);
+    if (fi === -1) {
+      showWarning("收藏箱已滿（50 格）。");
+      return true;
+    }
+    let cat = null;
+    let item = null;
+    if (selectedPlantSlot >= 0) {
+      const t = plantInv[selectedPlantSlot];
+      if (!t) {
+        showWarning("請選取有物品的背包格。");
+        return true;
+      }
+      cat = "plant";
+      item = t;
+      plantInv[selectedPlantSlot] = null;
+      selectedPlantSlot = -1;
+    } else if (selectedEnemySlot >= 0) {
+      const t = enemyInv[selectedEnemySlot];
+      if (!t || !isValidEnemyWorker(t)) {
+        showWarning("請選取有物品的背包格。");
+        return true;
+      }
+      cat = "enemy";
+      item = t;
+      const favMega = enemyInvMega[selectedEnemySlot];
+      enemyInv[selectedEnemySlot] = null;
+      enemyInvMega[selectedEnemySlot] = false;
+      selectedEnemySlot = -1;
+      favoriteBox[fi] = favMega ? { cat, item, mega: true } : { cat, item };
+      refreshInvUi();
+      renderFavoriteGrid();
+      saveGame();
+      return true;
+    } else {
+      showWarning("請先在背包點選要放入收藏箱的物品。");
+      return true;
+    }
+    favoriteBox[fi] = { cat, item };
+    refreshInvUi();
+    renderFavoriteGrid();
+    saveGame();
+    return true;
+  }
+
   function tryInteract() {
     if (isUiBlocking()) return;
+
+    if (tryDepositFavorite()) return;
 
     for (let i = 0; i < graySlots.length; i++) {
       const s = graySlots[i];
@@ -1386,8 +1724,9 @@
       const cy = s.y + s.h / 2;
       if (dist(player.x, player.y, cx, cy) < 36 && s.worker) {
         const w = s.worker;
-        if (!addEnemyToInv(w)) return;
+        if (!addEnemyToInv(w, !!s.workerMega)) return;
         s.worker = null;
+        s.workerMega = false;
         refreshInvUi();
         return;
       }
@@ -1409,6 +1748,23 @@
             if (shovelCount <= 0) selectedGear = null;
             anyMaturePlant = plants.some((pl) => pl.mature);
             refreshInvUi();
+          }
+          return;
+        }
+        if (selectedGear === "reclaimer" && reclaimerCount > 0) {
+          const pi = plants.findIndex((p) => p.row === g.row && p.col === g.col);
+          if (pi >= 0) {
+            const seedItem = plantToSeedItem(plants[pi]);
+            if (!tryAddToPlantInv(seedItem)) {
+              showWarning("植物背包已滿，無法回收種子；已保留植株與回收器。");
+              return;
+            }
+            plants.splice(pi, 1);
+            reclaimerCount--;
+            if (reclaimerCount <= 0) selectedGear = null;
+            anyMaturePlant = plants.some((pl) => pl.mature);
+            refreshInvUi();
+            saveGame();
           }
           return;
         }
@@ -1456,9 +1812,10 @@
       const cx = s.x + s.w / 2;
       const cy = s.y + s.h / 2;
       if (dist(player.x, player.y, cx, cy) < 36 && hasEnemyWorkerInv()) {
-        const kind = takeEnemyForWorker();
-        if (!kind) return;
-        s.worker = kind;
+        const took = takeEnemyForWorker();
+        if (!took) return;
+        s.worker = took.type;
+        s.workerMega = took.mega;
         refreshInvUi();
         return;
       }
@@ -1528,10 +1885,10 @@
           const mob = mobs[j];
           if (mob.lane !== p.col) continue;
           if (mob.y <= pc.y + 4) continue;
-          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE) continue;
+          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE * enemyMobDrawScale(mob)) continue;
           mob.hp -= dps * dt;
           if (mob.hp <= 0) {
-            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
+            if (addEnemyToInv(mob.type, !!mob.mega)) registerEnemyDefeatForBoss();
             mobs.splice(j, 1);
           }
         }
@@ -1542,10 +1899,10 @@
           const mob = mobs[j];
           if (mob.lane !== p.col) continue;
           if (mob.y <= pc.y + 4) continue;
-          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE) continue;
+          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE * enemyMobDrawScale(mob)) continue;
           mob.hp -= dps * dt;
           if (mob.hp <= 0) {
-            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
+            if (addEnemyToInv(mob.type, !!mob.mega)) registerEnemyDefeatForBoss();
             mobs.splice(j, 1);
           }
         }
@@ -1563,6 +1920,7 @@
         if (lane < 0) break;
         const cx = laneCenterX(lane);
         const sy = spawnerRect.y - 8;
+        const mega = Math.random() < MEGA_MOB_CHANCE;
         if (kind === "bee") {
           mobs.push({
             x: cx,
@@ -1571,6 +1929,7 @@
             speed: 40,
             type: "bee",
             lane,
+            mega,
           });
         } else if (kind === "butterfly") {
           mobs.push({
@@ -1580,6 +1939,7 @@
             speed: 34,
             type: "butterfly",
             lane,
+            mega,
           });
         } else if (kind === "beetle") {
           mobs.push({
@@ -1589,6 +1949,7 @@
             speed: BEETLE_SPEED,
             type: "beetle",
             lane,
+            mega,
           });
         } else if (kind === "lizard") {
           mobs.push({
@@ -1598,6 +1959,7 @@
             speed: LIZARD_SPEED,
             type: "lizard",
             lane,
+            mega,
           });
         } else if (kind === "snake") {
           mobs.push({
@@ -1607,6 +1969,7 @@
             speed: SNAKE_SPEED,
             type: "snake",
             lane,
+            mega,
           });
         } else if (kind === "jay") {
           mobs.push({
@@ -1616,6 +1979,17 @@
             speed: JAY_SPEED,
             type: "jay",
             lane,
+            mega,
+          });
+        } else if (kind === "robin") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: ROBIN_HP,
+            speed: ROBIN_SPEED,
+            type: "robin",
+            lane,
+            mega,
           });
         }
       }
@@ -1629,11 +2003,11 @@
       for (let j = mobs.length - 1; j >= 0; j--) {
         const mob = mobs[j];
         if (mob.lane !== pr.lane) continue;
-        if (dist(pr.x, pr.y, mob.x, mob.y) < PROJ_HIT_R) {
+        if (dist(pr.x, pr.y, mob.x, mob.y) < PROJ_HIT_R * enemyMobDrawScale(mob)) {
           mob.hp -= pr.dmg;
           hit = true;
           if (mob.hp <= 0) {
-            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
+            if (addEnemyToInv(mob.type, !!mob.mega)) registerEnemyDefeatForBoss();
             mobs.splice(j, 1);
           }
           break;
@@ -1655,14 +2029,10 @@
 
     let income = 0;
     for (const s of graySlots) {
-      if (s.worker === "bee") income += BEE_DOLLAR_PER_SEC * dt;
-      if (s.worker === "butterfly") income += BUTTERFLY_DOLLAR_PER_SEC * dt;
-      if (s.worker === "raven") income += RAVEN_DOLLAR_PER_SEC * dt;
-      if (s.worker === "beetle") income += BEETLE_DOLLAR_PER_SEC * dt;
-      if (s.worker === "dragonfly") income += DRAGONFLY_DOLLAR_PER_SEC * dt;
-      if (s.worker === "lizard") income += LIZARD_DOLLAR_PER_SEC * dt;
-      if (s.worker === "snake") income += SNAKE_DOLLAR_PER_SEC * dt;
-      if (s.worker === "jay") income += JAY_DOLLAR_PER_SEC * dt;
+      if (!s.worker) continue;
+      const base = dollarPerSecForGrayWorker(s.worker);
+      const mult = s.workerMega ? 2 : 1;
+      income += base * mult * dt;
     }
     if (income > 0) {
       money += income;
@@ -2064,14 +2434,16 @@
     ctx.stroke();
   }
 
-  function drawBeeWorld(b, showHp) {
+  function drawBeeWorld(b, showHp, worldScale) {
     const x = b.x;
     const y = b.y;
     if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
     const wingT = performance.now() / 80;
 
     ctx.save();
     ctx.translate(x, y);
+    ctx.scale(sc, sc);
 
     ctx.fillStyle = "rgba(255,255,255,0.45)";
     ctx.beginPath();
@@ -2135,14 +2507,16 @@
     ctx.restore();
   }
 
-  function drawButterflyWorld(m, showHp) {
+  function drawButterflyWorld(m, showHp, worldScale) {
     const x = m.x;
     const y = m.y;
     if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
     const wingT = performance.now() / 55;
 
     ctx.save();
     ctx.translate(x, y);
+    ctx.scale(sc, sc);
 
     ctx.fillStyle = "rgba(255, 152, 0, 0.55)";
     ctx.beginPath();
@@ -2629,15 +3003,128 @@
     ctx.restore();
   }
 
+  /** 知更鳥：灰背、橘腹 */
+  function drawRobinWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const flap = Math.sin(performance.now() / 74) * 0.11;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#90a4ae";
+    ctx.beginPath();
+    ctx.ellipse(-13, 2 + flap * 5, 11, 7.5, -0.32 + flap * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#78909c";
+    ctx.beginPath();
+    ctx.ellipse(12, 2 + flap * 5, 10, 7, 0.34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ff7043";
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 9, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#37474f";
+    ctx.beginPath();
+    ctx.moveTo(5, -2);
+    ctx.lineTo(18, -6);
+    ctx.lineTo(7, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-2, -1, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(-1.2, -1, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 2;
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 17);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
+  /** 鷹：大型棕翅猛禽 */
+  function drawHawkWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const flap = Math.sin(performance.now() / 68) * 0.1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    const wingG = ctx.createLinearGradient(-32, -4, -6, 8);
+    wingG.addColorStop(0, "#5d4037");
+    wingG.addColorStop(0.55, "#8d6e63");
+    wingG.addColorStop(1, "#4e342e");
+    ctx.fillStyle = wingG;
+    ctx.beginPath();
+    ctx.ellipse(-22, -2 + flap * 6, 22, 13, -0.42 + flap * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = wingG;
+    ctx.beginPath();
+    ctx.ellipse(22, -2 + flap * 6, 22, 13, 0.42 - flap * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#3e2723";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+    ctx.fillStyle = "#6d4c41";
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 12, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffcc80";
+    ctx.beginPath();
+    ctx.moveTo(10, -4);
+    ctx.lineTo(26, -2);
+    ctx.lineTo(12, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffeb3b";
+    ctx.beginPath();
+    ctx.arc(-3, -8, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(-2.2, -8, 1, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.6)";
+      ctx.shadowBlur = 3;
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 22);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
   function drawMobWorld(m, showHp) {
-    if (m.type === "dragonfly") drawDragonflyWorld(m, showHp, 1.18);
-    else if (m.type === "butterfly") drawButterflyWorld(m, showHp);
-    else if (m.type === "raven") drawRavenWorld(m, showHp, 1.05);
-    else if (m.type === "beetle") drawBeetleWorld(m, showHp, 1);
-    else if (m.type === "lizard") drawLizardWorld(m, showHp, 0.95);
-    else if (m.type === "snake") drawSnakeWorld(m, showHp, 0.92);
-    else if (m.type === "jay") drawJayWorld(m, showHp, 0.88);
-    else drawBeeWorld(m, showHp);
+    const ms = enemyMobDrawScale(m);
+    if (m.type === "dragonfly") drawDragonflyWorld(m, showHp, 1.18 * ms);
+    else if (m.type === "butterfly") drawButterflyWorld(m, showHp, ms);
+    else if (m.type === "raven") drawRavenWorld(m, showHp, 1.05 * ms);
+    else if (m.type === "beetle") drawBeetleWorld(m, showHp, 1 * ms);
+    else if (m.type === "lizard") drawLizardWorld(m, showHp, 0.95 * ms);
+    else if (m.type === "snake") drawSnakeWorld(m, showHp, 0.92 * ms);
+    else if (m.type === "jay") drawJayWorld(m, showHp, 0.88 * ms);
+    else if (m.type === "robin") drawRobinWorld(m, showHp, 0.86 * ms);
+    else if (m.type === "hawk") drawHawkWorld(m, showHp, 1.02 * ms);
+    else drawBeeWorld(m, showHp, ms);
   }
 
   function drawGrid() {
@@ -2721,13 +3208,30 @@
     ctx.fillStyle = "#eceff1";
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("道具店", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 22);
-    ctx.font = "10px sans-serif";
-    ctx.fillText("鏟 $" + SHOVEL_COST, gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 42);
-    ctx.fillStyle = "#b0bec5";
+    ctx.fillText("道具店", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 20);
     ctx.font = "9px sans-serif";
-    ctx.fillText("剷除植株", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 58);
-    ctx.fillText("靠近開選單", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 72);
+    ctx.fillText("鏟 $" + SHOVEL_COST + " 剷除", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 38);
+    ctx.fillText("回收 $" + RECLAIMER_COST + " 取種", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 52);
+    ctx.fillStyle = "#b0bec5";
+    ctx.font = "8px sans-serif";
+    ctx.fillText("靠近開選單", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 68);
+    ctx.fillText("下：收藏箱", gearShopRect.x + gearShopRect.w / 2, gearShopRect.y + 82);
+  }
+
+  function drawFavoriteBox() {
+    ctx.fillStyle = "#4e342e";
+    ctx.fillRect(favoriteBoxRect.x, favoriteBoxRect.y, favoriteBoxRect.w, favoriteBoxRect.h);
+    ctx.strokeStyle = "#ffcc80";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(favoriteBoxRect.x, favoriteBoxRect.y, favoriteBoxRect.w, favoriteBoxRect.h);
+    ctx.fillStyle = "#ffe0b2";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("收藏箱", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 20);
+    ctx.font = "8px sans-serif";
+    ctx.fillStyle = "#bcaaa4";
+    ctx.fillText("50 格 · E 放入", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 38);
+    ctx.fillText("Space 開箱", favoriteBoxRect.x + favoriteBoxRect.w / 2, favoriteBoxRect.y + 52);
   }
 
   function drawSellShop() {
@@ -2778,7 +3282,12 @@
     const untilBoss = Math.max(0, KILLS_PER_DRAGONFLY_BOSS - defeatCount);
     ctx.font = "8px sans-serif";
     ctx.fillStyle = "#ffcc80";
-    ctx.fillText("距蜻蜓王：還需 " + untilBoss + " 隻", cx, spawnerRect.y + 42);
+    syncSpawnTableState();
+    const bossLine =
+      activeSpawnTable === 1 && spawnerUpgradeOwned
+        ? "距鷹：還需 " + untilBoss + " 隻"
+        : "距蜻蜓王：還需 " + untilBoss + " 隻";
+    ctx.fillText(bossLine, cx, spawnerRect.y + 42);
     const poolLabel =
       activeSpawnTable === 1 && spawnerUpgradeOwned ? "池：Upgrade 1" : "池：Default";
     ctx.fillStyle = "#90a4ae";
@@ -2810,42 +3319,33 @@
       } else if (s.worker) {
         const cx = s.x + s.w / 2;
         const cy = s.y + s.h / 2;
+        const ms = s.workerMega ? 2 : 1;
         if (s.worker === "bee") {
-          drawBeeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "bee" }, false);
+          drawBeeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "bee" }, false, 1 * ms);
         } else if (s.worker === "butterfly") {
-          drawButterflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "butterfly" }, false);
+          drawButterflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "butterfly" }, false, 1 * ms);
         } else if (s.worker === "beetle") {
-          drawBeetleWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "beetle" }, false, 0.62);
+          drawBeetleWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "beetle" }, false, 0.62 * ms);
         } else if (s.worker === "raven") {
-          drawRavenWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "raven" }, false, 0.5);
+          drawRavenWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "raven" }, false, 0.5 * ms);
         } else if (s.worker === "dragonfly") {
-          drawDragonflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "dragonfly" }, false, 0.38);
+          drawDragonflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "dragonfly" }, false, 0.38 * ms);
         } else if (s.worker === "lizard") {
-          drawLizardWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "lizard" }, false, 0.42);
+          drawLizardWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "lizard" }, false, 0.42 * ms);
         } else if (s.worker === "snake") {
-          drawSnakeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "snake" }, false, 0.4);
+          drawSnakeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "snake" }, false, 0.4 * ms);
         } else if (s.worker === "jay") {
-          drawJayWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "jay" }, false, 0.4);
+          drawJayWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "jay" }, false, 0.4 * ms);
+        } else if (s.worker === "robin") {
+          drawRobinWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "robin" }, false, 0.38 * ms);
+        } else if (s.worker === "hawk") {
+          drawHawkWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "hawk" }, false, 0.32 * ms);
         }
         ctx.fillStyle = "#000";
         ctx.font = "bold 8px sans-serif";
         ctx.textAlign = "center";
-        const rateLabel =
-          s.worker === "dragonfly"
-            ? "$17/s"
-            : s.worker === "raven"
-              ? "$10/s"
-              : s.worker === "beetle"
-                ? "$4/s"
-                : s.worker === "butterfly"
-                  ? "$2/s"
-                  : s.worker === "lizard"
-                    ? "$8/s"
-                    : s.worker === "snake"
-                      ? "$11/s"
-                      : s.worker === "jay"
-                        ? "$15/s"
-                        : "$1/s";
+        const r = dollarPerSecForGrayWorker(s.worker) * (s.workerMega ? 2 : 1);
+        const rateLabel = "$" + r + "/s";
         ctx.fillText(rateLabel, s.x + s.w / 2, s.y + s.h - 2);
       }
     });
@@ -2870,7 +3370,7 @@
     ctx.font = "13px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(
-      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨／鳳梨近戰 · 種下時 5% 巨型（2× 體型／傷害；兌換蕨種除外） · 左下道具店鏟子 · 解鎖道生成 −1 秒 · 百隻出蜻蜓王 · 右下轉生店升級生成池",
+      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨／鳳梨近戰 · 種下時 5% 巨型 · 敵 5% 巨型（灰格 2× 錢）· 左下道具店（鏟／回收器）· 其下收藏箱 E 存入 Space 開箱 · 解鎖道 −1 秒 · 百隻擊殺王怪 · 右下轉生店",
       GRID_X,
       GRID_Y - 92
     );
@@ -2899,6 +3399,7 @@
     drawSpawner();
     drawShop();
     drawGearShop();
+    drawFavoriteBox();
     drawSellShop();
     drawRebirthShop();
     for (const mob of mobs) drawMobWorld(mob);
@@ -2913,10 +3414,20 @@
   if (sellLizardPriceEl) sellLizardPriceEl.textContent = String(SELL_LIZARD_PRICE);
   if (sellSnakePriceEl) sellSnakePriceEl.textContent = String(SELL_SNAKE_PRICE);
   if (sellJayPriceEl) sellJayPriceEl.textContent = String(SELL_JAY_PRICE);
+  if (sellRobinPriceEl) sellRobinPriceEl.textContent = String(SELL_ROBIN_PRICE);
+  if (sellHawkPriceEl) sellHawkPriceEl.textContent = String(SELL_HAWK_PRICE);
   if (shovelPriceEl) shovelPriceEl.textContent = String(SHOVEL_COST);
+  if (reclaimerPriceEl) reclaimerPriceEl.textContent = String(RECLAIMER_COST);
   if (pineapplePriceEl) pineapplePriceEl.textContent = String(PINEAPPLE_COST);
 
   buildInvSlots();
+  if (favoriteGridEl) {
+    favoriteGridEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".favorite-slot-btn");
+      if (!b || b.dataset.favIdx === undefined) return;
+      tryRetrieveFavoriteSlot(Number(b.dataset.favIdx));
+    });
+  }
   loadGame();
   refreshInvUi();
   updateRebirthModal();

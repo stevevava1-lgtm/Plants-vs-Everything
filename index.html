@@ -10,7 +10,7 @@
   <div id="hud">
     <div class="hud-main">
       <div id="money">金錢：$<span id="moneyVal">20</span></div>
-      <div id="hint">WASD · <strong>B</strong> 背包 · 綠格 <strong>E</strong> 種植／<strong>選鏟剷除</strong> · 空灰格 <strong>E</strong> 放單位 · <strong>有單位的灰格 E</strong> 收回 · <strong>R</strong> 解鎖 · 左<strong>植物店</strong> · 左下<strong>道具店</strong> · 右<strong>回收</strong> · 右下<strong>轉生店</strong></div>
+      <div id="hint">WASD · <strong>B</strong> 背包 · 綠格 <strong>E</strong> 種植／鏟除／<strong>回收器取種</strong> · 灰格 <strong>E</strong> · <strong>R</strong> 解鎖 · 左植物店 · 左下道具店＋收藏箱（<strong>E</strong> 存入 · <strong>Space</strong> 開箱）· 右回收 · 右下轉生店</div>
     </div>
     <button type="button" id="btnSettings" class="settings-btn" title="設定" aria-label="設定">⚙</button>
   </div>
@@ -27,8 +27,8 @@
       <div id="plantSlots" class="inv-row plant-row"></div>
     </div>
     <div class="inv-section inv-section-gears">
-      <h3>道具 <span class="inv-en">Gears</span> · 鏟子 <span id="shovelStackCount">0</span></h3>
-      <p class="inv-sub">點選鏟子後，站到該株綠格按 <strong>E</strong> 剷除（每次消耗一把，可疊加）</p>
+      <h3>道具 · 鏟 <span id="shovelStackCount">0</span> · 回收器 <span id="reclaimerStackCount">0</span></h3>
+      <p class="inv-sub">點選鏟子：對植株 <strong>E</strong> 剷除。點選回收器：對植株 <strong>E</strong> 摧毀並取回種子（背包滿則不消耗）。</p>
       <div id="gearSlots" class="inv-row gear-row"></div>
     </div>
     <div class="inv-section">
@@ -81,16 +81,27 @@
   <div id="gearModal" class="modal hidden">
     <div class="modal-inner">
       <h2>道具店</h2>
-      <p>鏟子 — $<span id="shovelPrice">35</span>（背包疊加；選取後對植株按 E 剷除，每次一把）</p>
+      <p>鏟子 — $<span id="shovelPrice">35</span>（疊加；選取後對植株按 E 剷除，每次一把）</p>
       <button type="button" id="btnBuyShovel">購買鏟子</button>
+      <p>回收器 — $<span id="reclaimerPrice">100</span>（疊加；選取後對植株按 E 摧毀並取回對應種子；植物背包滿時不會消耗回收器）</p>
+      <button type="button" id="btnBuyReclaimer">購買回收器</button>
       <button type="button" id="btnCloseGear">關閉</button>
+    </div>
+  </div>
+
+  <div id="favoriteModal" class="modal hidden">
+    <div class="modal-inner modal-inner-favorite">
+      <h2>收藏箱（50 格）</h2>
+      <p class="inv-sub">點格取回背包。植物滿／敵人滿時無法取出。</p>
+      <div id="favoriteGrid" class="favorite-grid" role="grid" aria-label="收藏箱"></div>
+      <button type="button" id="btnCloseFavorite">關閉</button>
     </div>
   </div>
 
   <div id="sellModal" class="modal hidden">
     <div class="modal-inner">
       <h2>回收店</h2>
-      <p>蜜蜂 $<span id="sellPrice">8</span> · 蝴蝶 $<span id="sellButterflyPrice">15</span> · 甲蟲 $<span id="sellBeetlePrice">12</span> · 蜻蜓王 $<span id="sellDragonflyPrice">60</span> · 烏鴉 $<span id="sellRavenPrice">80</span> · 蜥蜴 $<span id="sellLizardPrice">22</span> · 蛇 $<span id="sellSnakePrice">35</span> · 冠藍鴉 $<span id="sellJayPrice">52</span></p>
+      <p>蜜蜂 $<span id="sellPrice">8</span> · 蝴蝶 $<span id="sellButterflyPrice">15</span> · 甲蟲 $<span id="sellBeetlePrice">12</span> · 蜻蜓王 $<span id="sellDragonflyPrice">60</span> · 烏鴉 $<span id="sellRavenPrice">80</span> · 蜥蜴 $<span id="sellLizardPrice">22</span> · 蛇 $<span id="sellSnakePrice">35</span> · 冠藍鴉 $<span id="sellJayPrice">52</span> · 知更鳥 $<span id="sellRobinPrice">48</span> · 鷹 $<span id="sellHawkPrice">95</span>（巨型敵回收價 2×）</p>
       <p class="inv-sub">可選取／自動賣一隻／全部賣出</p>
       <button type="button" id="btnSellSelected">賣出選取的單位</button>
       <button type="button" id="btnSellOne">賣出一隻（自動）</button>
@@ -102,7 +113,7 @@
   <div id="rebirthModal" class="modal hidden">
     <div class="modal-inner">
       <h2>轉生店 · 生成池</h2>
-      <p>支付背包內 <strong>3 隻蜻蜓王</strong> 與 <strong>$4000</strong>，永久解鎖「Upgrade 1」生成表（蜥蜴／蛇／冠藍鴉）。</p>
+      <p>支付背包內 <strong>3 隻蜻蜓王</strong> 與 <strong>$4000</strong>，永久解鎖「Upgrade 1」生成表（蜥蜴／蛇／冠藍鴉／知更鳥；百隻擊殺改召鷹）。</p>
       <button type="button" id="btnUnlockSpawner">解鎖（3×蜻蜓王 + $4000）</button>
       <p>切換目前生成表：</p>
       <button type="button" id="btnSpawnerDefault">Default（舊表）</button>
