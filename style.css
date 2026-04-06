@@ -450,6 +450,72 @@ body.backpack-open #gameWrap {
   box-shadow: 0 0 0 1px rgba(27, 94, 32, 0.5);
 }
 
+.icon-lizard {
+  display: block;
+  width: 22px;
+  height: 14px;
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse 75% 85% at 40% 45%, #9ccc65 0%, #558b2f 55%, #33691e 100%);
+  box-shadow: inset 0 0 0 1px #2e4a16;
+  position: relative;
+}
+
+.icon-lizard::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 1px;
+  width: 8px;
+  height: 7px;
+  border-radius: 50%;
+  background: #689f38;
+  box-shadow: inset -1px 0 0 #33691e;
+}
+
+.icon-snake {
+  display: block;
+  width: 22px;
+  height: 8px;
+  border-radius: 40%;
+  background: linear-gradient(90deg, #1b5e20 0%, #43a047 40%, #2e7d32 100%);
+  box-shadow: 0 0 0 1px #0d2818;
+  transform: rotate(-8deg);
+}
+
+.icon-jay {
+  display: block;
+  width: 22px;
+  height: 18px;
+  position: relative;
+  background: radial-gradient(ellipse 55% 70% at 50% 55%, #eceff1 0%, #90a4ae 45%, #37474f 100%);
+  border-radius: 45% 45% 50% 50%;
+  box-shadow: 0 0 0 1px #263238;
+}
+
+.icon-jay::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 5px;
+  width: 10px;
+  height: 11px;
+  background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+  border-radius: 50% 25% 60% 35%;
+  transform: rotate(-20deg);
+}
+
+.icon-jay::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 6px;
+  width: 9px;
+  height: 10px;
+  background: linear-gradient(-135deg, #1565c0 0%, #0d47a1 100%);
+  border-radius: 25% 50% 35% 60%;
+  transform: rotate(18deg);
+}
+
 .toast {
   position: fixed;
   bottom: 28px;
@@ -530,6 +596,16 @@ body.backpack-open #gameWrap {
 
 .modal-inner button:hover {
   background: #5d8448;
+}
+
+.modal-inner button.btn-spawner-active {
+  box-shadow: 0 0 0 2px #ffca28, 0 0 0 4px rgba(255, 202, 40, 0.35);
+  background: #5d7c47;
+}
+
+.modal-inner button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .settings-inner {

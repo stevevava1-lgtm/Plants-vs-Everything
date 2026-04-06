@@ -18,6 +18,8 @@
   const btnBuy = document.getElementById("btnBuy");
   const btnBuyFern = document.getElementById("btnBuyFern");
   const btnBuyGrape = document.getElementById("btnBuyGrape");
+  const btnBuyPineapple = document.getElementById("btnBuyPineapple");
+  const pineapplePriceEl = document.getElementById("pineapplePrice");
   const btnClose = document.getElementById("btnClose");
   const btnBuyShovel = document.getElementById("btnBuyShovel");
   const btnCloseGear = document.getElementById("btnCloseGear");
@@ -33,16 +35,24 @@
   const btnWipeProgress = document.getElementById("btnWipeProgress");
   const codeInput = document.getElementById("codeInput");
   const btnRedeemCode = document.getElementById("btnRedeemCode");
+  const rebirthModal = document.getElementById("rebirthModal");
+  const btnUnlockSpawner = document.getElementById("btnUnlockSpawner");
+  const btnSpawnerDefault = document.getElementById("btnSpawnerDefault");
+  const btnSpawnerUpgrade = document.getElementById("btnSpawnerUpgrade");
+  const btnCloseRebirth = document.getElementById("btnCloseRebirth");
   const sellRavenPriceEl = document.getElementById("sellRavenPrice");
   const sellBeetlePriceEl = document.getElementById("sellBeetlePrice");
   const sellDragonflyPriceEl = document.getElementById("sellDragonflyPrice");
+  const sellLizardPriceEl = document.getElementById("sellLizardPrice");
+  const sellSnakePriceEl = document.getElementById("sellSnakePrice");
+  const sellJayPriceEl = document.getElementById("sellJayPrice");
 
   const PLANT_SLOTS = 10;
   const ENEMY_SLOTS = 100;
   const SAVE_KEY = "plantsVsEverythingSaveV1";
   const REDEMPTION_CODES_KEY = "plantsVsEverythingRedeemedCodes";
-  /** 區分大小寫；兌換後取得限定烏鴉 */
-  const CODE_REWARD_RAVEN = "R4v3np31t";
+  /** 區分大小寫；兌換後取得 1 鳳梨苗 */
+  const CODE_REWARD_PINEAPPLE = "HXO1";
   const SAVE_INTERVAL_SEC = 2;
 
   const ROWS = 7;
@@ -59,8 +69,12 @@
   /** 葡萄：每發 1 傷，發射間隔（秒） */
   const GRAPE_SHOOT_INTERVAL = 0.3;
   const GRAPE_COST = 500;
+  const PINEAPPLE_COST = 2000;
+  /** 鳳梨：成熟後同欄近戰，與蕨相同判定距離 */
+  const GROW_TIME_PINEAPPLE = 12;
+  const PINEAPPLE_DPS = 15;
   const SHOVEL_COST = 35;
-  /** 蕨類近戰：同欄、在植株前方（靠生成端）的距離內 */
+  /** 蕨類／鳳梨近戰：同欄、在植株前方（靠生成端）的距離內 */
   const FERN_MELEE_RANGE = 72;
   const SPAWN_INTERVAL_BASE = 7;
   /** 每多解鎖一條種植道，生成間隔少 1 秒（中央起始道不扣） */
@@ -87,12 +101,33 @@
   const DRAGONFLY_DOLLAR_PER_SEC = 17;
   const DRAGONFLY_SPEED = 26;
   const SELL_DRAGONFLY_PRICE = 60;
+  const LIZARD_HP = 30;
+  const LIZARD_SPEED = 35;
+  const LIZARD_DOLLAR_PER_SEC = 8;
+  const SELL_LIZARD_PRICE = 22;
+  const SNAKE_HP = 50;
+  const SNAKE_SPEED = 27;
+  const SNAKE_DOLLAR_PER_SEC = 11;
+  const SELL_SNAKE_PRICE = 35;
+  const JAY_HP = 80;
+  const JAY_SPEED = 22;
+  const JAY_DOLLAR_PER_SEC = 15;
+  const SELL_JAY_PRICE = 52;
+  /** 轉生店：解鎖升級生成池 */
+  const SPAWNER_UPGRADE_COST_MONEY = 4000;
+  const SPAWNER_UPGRADE_DRAGONFLIES = 3;
 
   /** 權重 3:2:1（蜜蜂:蝴蝶:甲蟲），甲蟲約 1/6 */
   const MOB_SPAWN_WEIGHTS = [
     { type: "bee", weight: 3 },
     { type: "butterfly", weight: 2 },
     { type: "beetle", weight: 1 },
+  ];
+  /** 升級池：蜥蜴為主體，蛇約 1/4，冠藍鴉約 1/10（權重 13:5:2） */
+  const MOB_SPAWN_WEIGHTS_UPGRADE = [
+    { type: "lizard", weight: 13 },
+    { type: "snake", weight: 5 },
+    { type: "jay", weight: 2 },
   ];
 
   /** 灰格 1 免費；格 2～10 對應 index 1～9 */
@@ -101,14 +136,15 @@
   /** 中央道（欄 3）免費；其餘六道由中往外：左 300/600/1200，右 2400/4800/9600 */
   const LANE_UNLOCK_PRICE = [300, 600, 1200, 0, 2400, 4800, 9600];
 
-  const shopRect = { x: 40, y: 212, w: 100, h: 152 };
-  const gearShopRect = { x: 40, y: 372, w: 100, h: 86 };
+  const shopRect = { x: 40, y: 208, w: 100, h: 158 };
+  const gearShopRect = { x: 40, y: 378, w: 100, h: 86 };
   const sellShopRect = { x: 780, y: 220, w: 100, h: 140 };
+  const rebirthShopRect = { x: 780, y: 365, w: 100, h: 96 };
   const spawnerRect = {
     x: GRID_X + 4,
     y: GRID_Y + ROWS * CELL + 6,
     w: COLS * CELL - 8,
-    h: 42,
+    h: 58,
   };
 
   const graySlots = [];
@@ -133,7 +169,7 @@
   /** 僅中央綠道（欄 3）起始解鎖 */
   const laneUnlocked = [false, false, false, true, false, false, false];
 
-  /** @type {(null | 'seed' | 'fern' | 'grape')[]} */
+  /** @type {(null | 'seed' | 'fern' | 'grape' | 'pineapple')[]} */
   const plantInv = new Array(PLANT_SLOTS).fill(null);
   /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly')[]} */
   const enemyInv = new Array(ENEMY_SLOTS).fill(null);
@@ -143,7 +179,7 @@
   /** @type {null | 'shovel'} */
   let selectedGear = null;
   let shovelCount = 0;
-  /** @type {null | 'buy' | 'sell' | 'gear'} */
+  /** @type {null | 'buy' | 'sell' | 'gear' | 'rebirth'} */
   let activeModal = null;
   let money = 20;
   let invPanelVisible = false;
@@ -152,6 +188,7 @@
   let strawberrySeedIconDataUrl = "";
   let fernIconDataUrl = "";
   let grapeIconDataUrl = "";
+  let pineappleIconDataUrl = "";
 
   const keys = {};
   const player = {
@@ -161,10 +198,10 @@
     speed: 180,
   };
 
-  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape', growLeft: number, mature: boolean, shootCd: number }[]} */
+  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple', growLeft: number, mature: boolean, shootCd: number }[]} */
   const plants = [];
 
-  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly', lane: number }[]} */
+  /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay', lane: number }[]} */
   const mobs = [];
 
   /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number, src?: 'strawberry' | 'grape' }[]} */
@@ -176,6 +213,10 @@
   let saveAcc = 0;
   /** 成功收進背包的擊殺數（滿包不計），每 100 生成蜻蜓王 */
   let defeatCount = 0;
+  /** 是否已付費解鎖升級生成表 */
+  let spawnerUpgradeOwned = false;
+  /** 0＝預設池，1＝升級池（需已解鎖） */
+  let activeSpawnTable = 0;
 
   function isValidEnemyWorker(w) {
     return (
@@ -183,9 +224,52 @@
       w === "butterfly" ||
       w === "raven" ||
       w === "beetle" ||
-      w === "dragonfly"
+      w === "dragonfly" ||
+      w === "lizard" ||
+      w === "snake" ||
+      w === "jay"
     );
   }
+
+  function countDragonfliesInInv() {
+    return enemyInv.filter((x) => x === "dragonfly").length;
+  }
+
+  /** @returns {boolean} 是否成功從背包移除 n 隻蜻蜓王 */
+  function consumeDragonfliesFromInv(n) {
+    let left = n;
+    for (let i = 0; i < enemyInv.length && left > 0; i++) {
+      if (enemyInv[i] === "dragonfly") {
+        enemyInv[i] = null;
+        left--;
+      }
+    }
+    return left === 0;
+  }
+
+  function syncSpawnTableState() {
+    if (activeSpawnTable === 1 && !spawnerUpgradeOwned) activeSpawnTable = 0;
+  }
+
+  function loadRedeemedCodesSet() {
+    try {
+      const raw = localStorage.getItem(REDEMPTION_CODES_KEY);
+      const a = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(a) ? a.filter((x) => typeof x === "string") : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function persistRedeemedCodesSet(set) {
+    try {
+      localStorage.setItem(REDEMPTION_CODES_KEY, JSON.stringify([...set]));
+    } catch (e) {
+      /* 配額滿或私密模式 */
+    }
+  }
+
+  let redeemedCodes = loadRedeemedCodesSet();
 
   function countUnlockedLanes() {
     let n = 0;
@@ -225,26 +309,6 @@
     }
   }
 
-  function loadRedeemedCodesSet() {
-    try {
-      const raw = localStorage.getItem(REDEMPTION_CODES_KEY);
-      const a = raw ? JSON.parse(raw) : [];
-      return new Set(Array.isArray(a) ? a.filter((x) => typeof x === "string") : []);
-    } catch (e) {
-      return new Set();
-    }
-  }
-
-  function persistRedeemedCodesSet(set) {
-    try {
-      localStorage.setItem(REDEMPTION_CODES_KEY, JSON.stringify([...set]));
-    } catch (e) {
-      /* 同上 */
-    }
-  }
-
-  let redeemedCodes = loadRedeemedCodesSet();
-
   function getSavePayload() {
     return {
       v: 1,
@@ -283,6 +347,8 @@
       anyMaturePlant,
       defeatCount,
       shovelCount,
+      spawnerUpgradeOwned,
+      activeSpawnTable,
     };
   }
 
@@ -307,7 +373,7 @@
       if (Array.isArray(raw.plantInv) && raw.plantInv.length === PLANT_SLOTS) {
         for (let i = 0; i < PLANT_SLOTS; i++) {
           const t = raw.plantInv[i];
-          plantInv[i] = t === "seed" || t === "fern" || t === "grape" ? t : null;
+          plantInv[i] = t === "seed" || t === "fern" || t === "grape" || t === "pineapple" ? t : null;
         }
       }
 
@@ -322,7 +388,14 @@
       if (Array.isArray(raw.plants)) {
         for (const p of raw.plants) {
           if (!p || p.row < 0 || p.row >= ROWS || p.col < 0 || p.col >= COLS) continue;
-          const k = p.kind === "fern" ? "fern" : p.kind === "grape" ? "grape" : "strawberry";
+          const k =
+            p.kind === "fern"
+              ? "fern"
+              : p.kind === "grape"
+                ? "grape"
+                : p.kind === "pineapple"
+                  ? "pineapple"
+                  : "strawberry";
           plants.push({
             row: p.row | 0,
             col: p.col | 0,
@@ -355,6 +428,18 @@
             typ = "beetle";
             spd = BEETLE_SPEED;
             maxHp = BEETLE_HP;
+          } else if (m.type === "lizard") {
+            typ = "lizard";
+            spd = LIZARD_SPEED;
+            maxHp = LIZARD_HP;
+          } else if (m.type === "snake") {
+            typ = "snake";
+            spd = SNAKE_SPEED;
+            maxHp = SNAKE_HP;
+          } else if (m.type === "jay") {
+            typ = "jay";
+            spd = JAY_SPEED;
+            maxHp = JAY_HP;
           } else if (m.type === "butterfly") {
             typ = "butterfly";
             spd = 34;
@@ -413,6 +498,9 @@
         if (dc < 0) dc = 0;
         defeatCount = dc % KILLS_PER_DRAGONFLY_BOSS;
       }
+      if (typeof raw.spawnerUpgradeOwned === "boolean") spawnerUpgradeOwned = raw.spawnerUpgradeOwned;
+      if (typeof raw.activeSpawnTable === "number") activeSpawnTable = raw.activeSpawnTable === 1 ? 1 : 0;
+      syncSpawnTableState();
       anyMaturePlant = plants.some((pl) => pl.mature);
       return true;
     } catch (e) {
@@ -471,6 +559,7 @@
   function growTotalForFieldKind(kind) {
     if (kind === "fern") return GROW_TIME_FERN;
     if (kind === "grape") return GROW_TIME_GRAPE;
+    if (kind === "pineapple") return GROW_TIME_PINEAPPLE;
     return GROW_TIME_STRAWBERRY;
   }
 
@@ -507,6 +596,17 @@
     return true;
   }
 
+  function addPlantPineapple() {
+    const idx = plantInv.indexOf(null);
+    if (idx === -1) {
+      showWarning("植物背包已滿（10 格）！");
+      return false;
+    }
+    plantInv[idx] = "pineapple";
+    refreshInvUi();
+    return true;
+  }
+
   /** @param {'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly'} kind */
   function addEnemyToInv(kind) {
     if (!isValidEnemyWorker(kind)) return false;
@@ -525,14 +625,17 @@
     if (kind === "raven") return SELL_RAVEN_PRICE;
     if (kind === "beetle") return SELL_BEETLE_PRICE;
     if (kind === "dragonfly") return SELL_DRAGONFLY_PRICE;
+    if (kind === "lizard") return SELL_LIZARD_PRICE;
+    if (kind === "snake") return SELL_SNAKE_PRICE;
+    if (kind === "jay") return SELL_JAY_PRICE;
     return SELL_BEE_PRICE;
   }
 
-  /** @returns {null | 'seed' | 'fern' | 'grape'} */
+  /** @returns {null | 'seed' | 'fern' | 'grape' | 'pineapple'} */
   function takePlantItemForPlanting() {
     if (selectedPlantSlot >= 0) {
       const t = plantInv[selectedPlantSlot];
-      if (t === "seed" || t === "fern" || t === "grape") {
+      if (t === "seed" || t === "fern" || t === "grape" || t === "pineapple") {
         plantInv[selectedPlantSlot] = null;
         refreshInvUi();
         return t;
@@ -556,6 +659,12 @@
       refreshInvUi();
       return "grape";
     }
+    idx = plantInv.indexOf("pineapple");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "pineapple";
+    }
     return null;
   }
 
@@ -569,7 +678,7 @@
         return t;
       }
     }
-    for (const typ of ["bee", "butterfly", "beetle", "dragonfly", "raven"]) {
+    for (const typ of ["bee", "butterfly", "beetle", "lizard", "snake", "jay", "dragonfly", "raven"]) {
       const idx = enemyInv.indexOf(typ);
       if (idx !== -1) {
         enemyInv[idx] = null;
@@ -647,6 +756,23 @@
           sp.title = "葡萄苗";
           el.appendChild(sp);
         }
+      } else if (plantInv[i] === "pineapple") {
+        const url = getPineappleIconDataUrl();
+        if (url) {
+          const m = document.createElement("img");
+          m.className = "icon-seed-img";
+          m.src = url;
+          m.alt = "鳳梨苗";
+          m.title = "鳳梨苗（近戰 15／秒）";
+          el.appendChild(m);
+        } else {
+          const sp = document.createElement("span");
+          sp.textContent = "鳳";
+          sp.style.fontSize = "13px";
+          sp.style.color = "#ffe082";
+          sp.title = "鳳梨苗";
+          el.appendChild(sp);
+        }
       }
     });
 
@@ -679,6 +805,21 @@
         const m = document.createElement("span");
         m.className = "icon-dragonfly";
         m.title = "蜻蜓王";
+        el.appendChild(m);
+      } else if (enemyInv[i] === "lizard") {
+        const m = document.createElement("span");
+        m.className = "icon-lizard";
+        m.title = "蜥蜴";
+        el.appendChild(m);
+      } else if (enemyInv[i] === "snake") {
+        const m = document.createElement("span");
+        m.className = "icon-snake";
+        m.title = "蛇";
+        el.appendChild(m);
+      } else if (enemyInv[i] === "jay") {
+        const m = document.createElement("span");
+        m.className = "icon-jay";
+        m.title = "冠藍鴉";
         el.appendChild(m);
       }
     });
@@ -814,6 +955,10 @@
     shopModal.classList.toggle("hidden", mode !== "buy");
     if (gearModal) gearModal.classList.toggle("hidden", mode !== "gear");
     sellModal.classList.toggle("hidden", mode !== "sell");
+    if (rebirthModal) {
+      rebirthModal.classList.toggle("hidden", mode !== "rebirth");
+      if (mode === "rebirth") updateRebirthModal();
+    }
   }
 
   function closeAllModals() {
@@ -821,6 +966,7 @@
     shopModal.classList.add("hidden");
     if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
+    if (rebirthModal) rebirthModal.classList.add("hidden");
     settingsModal.classList.add("hidden");
   }
 
@@ -829,6 +975,7 @@
     shopModal.classList.add("hidden");
     if (gearModal) gearModal.classList.add("hidden");
     sellModal.classList.add("hidden");
+    if (rebirthModal) rebirthModal.classList.add("hidden");
     settingsModal.classList.remove("hidden");
   }
 
@@ -900,6 +1047,22 @@
     });
   }
 
+  if (btnBuyPineapple) {
+    btnBuyPineapple.addEventListener("click", () => {
+      if (money < PINEAPPLE_COST) {
+        closeAllModals();
+        return;
+      }
+      if (!addPlantPineapple()) {
+        closeAllModals();
+        return;
+      }
+      money -= PINEAPPLE_COST;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
+
   btnClose.addEventListener("click", closeAllModals);
 
   if (btnBuyShovel) {
@@ -919,7 +1082,7 @@
 
   btnSellSelected.addEventListener("click", () => {
     if (selectedEnemySlot < 0 || !isValidEnemyWorker(enemyInv[selectedEnemySlot])) {
-      showWarning("請先在背包點選蜜蜂、蝴蝶、甲蟲、蜻蜓王或烏鴉！");
+      showWarning("請先在背包點選可賣出的單位！");
       return;
     }
     sellOneEnemyFromInv(true);
@@ -948,7 +1111,65 @@
 
   btnCloseSell.addEventListener("click", closeAllModals);
 
+  function updateRebirthModal() {
+    if (!rebirthModal || !btnUnlockSpawner || !btnSpawnerDefault || !btnSpawnerUpgrade) return;
+    btnUnlockSpawner.disabled = spawnerUpgradeOwned;
+    btnUnlockSpawner.textContent = spawnerUpgradeOwned ? "已解鎖升級池" : "解鎖（3×蜻蜓王 + $" + SPAWNER_UPGRADE_COST_MONEY + "）";
+    btnSpawnerDefault.classList.toggle("btn-spawner-active", activeSpawnTable === 0);
+    btnSpawnerUpgrade.classList.toggle("btn-spawner-active", activeSpawnTable === 1);
+    btnSpawnerUpgrade.disabled = !spawnerUpgradeOwned;
+  }
+
+  if (btnUnlockSpawner) {
+    btnUnlockSpawner.addEventListener("click", () => {
+      if (spawnerUpgradeOwned) {
+        showWarning("你已解鎖升級生成池。");
+        return;
+      }
+      if (countDragonfliesInInv() < SPAWNER_UPGRADE_DRAGONFLIES) {
+        showWarning("需要背包內有 " + SPAWNER_UPGRADE_DRAGONFLIES + " 隻蜻蜓王。");
+        return;
+      }
+      if (money < SPAWNER_UPGRADE_COST_MONEY) {
+        showWarning("金錢不足！解鎖需 $" + SPAWNER_UPGRADE_COST_MONEY);
+        return;
+      }
+      if (!consumeDragonfliesFromInv(SPAWNER_UPGRADE_DRAGONFLIES)) {
+        showWarning("無法扣除蜻蜓王，請重試。");
+        return;
+      }
+      money -= SPAWNER_UPGRADE_COST_MONEY;
+      spawnerUpgradeOwned = true;
+      activeSpawnTable = 1;
+      syncSpawnTableState();
+      refreshInvUi();
+      updateRebirthModal();
+      showSuccess("已解鎖升級生成池！可切換 Default／Upgrade 1。");
+      saveGame();
+    });
+  }
+  if (btnSpawnerDefault) {
+    btnSpawnerDefault.addEventListener("click", () => {
+      activeSpawnTable = 0;
+      updateRebirthModal();
+      saveGame();
+    });
+  }
+  if (btnSpawnerUpgrade) {
+    btnSpawnerUpgrade.addEventListener("click", () => {
+      if (!spawnerUpgradeOwned) {
+        showWarning("請先解鎖升級生成池。");
+        return;
+      }
+      activeSpawnTable = 1;
+      updateRebirthModal();
+      saveGame();
+    });
+  }
+  if (btnCloseRebirth) btnCloseRebirth.addEventListener("click", closeAllModals);
+
   function tryRedeemCode() {
+    if (!codeInput) return;
     const code = codeInput.value.trim();
     if (!code) {
       showWarning("請輸入代碼");
@@ -958,27 +1179,30 @@
       showWarning("此代碼已使用過");
       return;
     }
-    if (code === CODE_REWARD_RAVEN) {
-      if (!addEnemyToInv("raven")) return;
+    if (code === CODE_REWARD_PINEAPPLE) {
+      if (!addPlantPineapple()) return;
       redeemedCodes.add(code);
       persistRedeemedCodesSet(redeemedCodes);
       codeInput.value = "";
-      showSuccess("已領取限定版烏鴉！請在敵人背包查看。");
+      showSuccess("已領取 1 個鳳梨苗！請在植物背包查看。");
       saveGame();
       return;
     }
     showWarning("代碼無效（請注意大小寫）");
   }
 
+  if (btnRedeemCode && codeInput) {
+    btnRedeemCode.addEventListener("click", () => tryRedeemCode());
+    codeInput.addEventListener("keydown", (e) => {
+      if (e.code === "Enter") {
+        e.preventDefault();
+        tryRedeemCode();
+      }
+    });
+  }
+
   btnSettings.addEventListener("click", () => openSettingsPanel());
   btnCloseSettings.addEventListener("click", () => settingsModal.classList.add("hidden"));
-  btnRedeemCode.addEventListener("click", () => tryRedeemCode());
-  codeInput.addEventListener("keydown", (e) => {
-    if (e.code === "Enter") {
-      e.preventDefault();
-      tryRedeemCode();
-    }
-  });
   btnWipeProgress.addEventListener("click", () => {
     if (!confirm("確定要清除所有遊戲進度？此操作無法復原。")) return;
     try {
@@ -1027,14 +1251,21 @@
     return Math.hypot(dx, dy);
   }
 
+  function getActiveSpawnWeights() {
+    syncSpawnTableState();
+    if (activeSpawnTable === 1 && spawnerUpgradeOwned) return MOB_SPAWN_WEIGHTS_UPGRADE;
+    return MOB_SPAWN_WEIGHTS;
+  }
+
   function rollSpawnMob() {
-    const sum = MOB_SPAWN_WEIGHTS.reduce((a, x) => a + x.weight, 0);
+    const table = getActiveSpawnWeights();
+    const sum = table.reduce((a, x) => a + x.weight, 0);
     let r = Math.random() * sum;
-    for (const m of MOB_SPAWN_WEIGHTS) {
+    for (const m of table) {
       r -= m.weight;
       if (r <= 0) return m.type;
     }
-    return MOB_SPAWN_WEIGHTS[MOB_SPAWN_WEIGHTS.length - 1].type;
+    return table[table.length - 1].type;
   }
 
   function tryPurchaseUpgrade() {
@@ -1117,13 +1348,21 @@
           if (
             plantInv.indexOf("seed") === -1 &&
             plantInv.indexOf("fern") === -1 &&
-            plantInv.indexOf("grape") === -1
+            plantInv.indexOf("grape") === -1 &&
+            plantInv.indexOf("pineapple") === -1
           ) {
-            showWarning("沒有可種植的苗（草莓／蕨／葡萄）！");
+            showWarning("沒有可種植的苗（草莓／蕨／葡萄／鳳梨）！");
           }
           return;
         }
-        const kind = item === "seed" ? "strawberry" : item === "fern" ? "fern" : "grape";
+        const kind =
+          item === "seed"
+            ? "strawberry"
+            : item === "fern"
+              ? "fern"
+              : item === "grape"
+                ? "grape"
+                : "pineapple";
         plants.push({
           row: g.row,
           col: g.col,
@@ -1155,13 +1394,24 @@
     const inBuy = rectsOverlap(player.x, player.y, player.r, shopRect.x, shopRect.y, shopRect.w, shopRect.h);
     const inGearShop = rectsOverlap(player.x, player.y, player.r, gearShopRect.x, gearShopRect.y, gearShopRect.w, gearShopRect.h);
     const inSell = rectsOverlap(player.x, player.y, player.r, sellShopRect.x, sellShopRect.y, sellShopRect.w, sellShopRect.h);
+    const inRebirth = rectsOverlap(
+      player.x,
+      player.y,
+      player.r,
+      rebirthShopRect.x,
+      rebirthShopRect.y,
+      rebirthShopRect.w,
+      rebirthShopRect.h
+    );
     if (inBuy) {
       if (activeModal !== "buy") setActiveModal("buy");
     } else if (inGearShop) {
       if (activeModal !== "gear") setActiveModal("gear");
     } else if (inSell) {
       if (activeModal !== "sell") setActiveModal("sell");
-    } else if (activeModal === "buy" || activeModal === "sell" || activeModal === "gear") {
+    } else if (inRebirth) {
+      if (activeModal !== "rebirth") setActiveModal("rebirth");
+    } else if (activeModal === "buy" || activeModal === "sell" || activeModal === "gear" || activeModal === "rebirth") {
       closeAllModals();
     }
 
@@ -1208,6 +1458,19 @@
             mobs.splice(j, 1);
           }
         }
+      } else if (p.kind === "pineapple") {
+        const pc = cellCenter(p.row, p.col);
+        for (let j = mobs.length - 1; j >= 0; j--) {
+          const mob = mobs[j];
+          if (mob.lane !== p.col) continue;
+          if (mob.y <= pc.y + 4) continue;
+          if (dist(pc.x, pc.y, mob.x, mob.y) > FERN_MELEE_RANGE) continue;
+          mob.hp -= PINEAPPLE_DPS * dt;
+          if (mob.hp <= 0) {
+            if (addEnemyToInv(mob.type)) registerEnemyDefeatForBoss();
+            mobs.splice(j, 1);
+          }
+        }
       }
     }
     if (matureNow) anyMaturePlant = plants.some((pl) => pl.mature);
@@ -1247,6 +1510,33 @@
             hp: BEETLE_HP,
             speed: BEETLE_SPEED,
             type: "beetle",
+            lane,
+          });
+        } else if (kind === "lizard") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: LIZARD_HP,
+            speed: LIZARD_SPEED,
+            type: "lizard",
+            lane,
+          });
+        } else if (kind === "snake") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: SNAKE_HP,
+            speed: SNAKE_SPEED,
+            type: "snake",
+            lane,
+          });
+        } else if (kind === "jay") {
+          mobs.push({
+            x: cx,
+            y: sy,
+            hp: JAY_HP,
+            speed: JAY_SPEED,
+            type: "jay",
             lane,
           });
         }
@@ -1292,6 +1582,9 @@
       if (s.worker === "raven") income += RAVEN_DOLLAR_PER_SEC * dt;
       if (s.worker === "beetle") income += BEETLE_DOLLAR_PER_SEC * dt;
       if (s.worker === "dragonfly") income += DRAGONFLY_DOLLAR_PER_SEC * dt;
+      if (s.worker === "lizard") income += LIZARD_DOLLAR_PER_SEC * dt;
+      if (s.worker === "snake") income += SNAKE_DOLLAR_PER_SEC * dt;
+      if (s.worker === "jay") income += JAY_DOLLAR_PER_SEC * dt;
     }
     if (income > 0) {
       money += income;
@@ -1484,6 +1777,65 @@
     c.restore();
   }
 
+  /** 鳳梨：金黃橢圓身、頂端綠冠、大眼 */
+  function drawPineappleCharacter(c, cx, cy, scale) {
+    const s = scale;
+    c.save();
+    c.translate(cx, cy);
+
+    const crownN = 9;
+    c.lineCap = "round";
+    for (let i = 0; i < crownN; i++) {
+      const t = i / (crownN - 1);
+      const ang = -Math.PI * 0.55 + t * Math.PI * 1.1;
+      c.strokeStyle = i % 2 === 0 ? "#1b5e20" : "#388e3c";
+      c.lineWidth = (2.1 + (i % 2)) * s;
+      c.beginPath();
+      c.moveTo(Math.sin(ang) * 2 * s, -8 * s);
+      c.lineTo(Math.sin(ang) * 5 * s, -20 * s - Math.cos(ang) * 4 * s);
+      c.stroke();
+    }
+
+    const body = c.createRadialGradient(-4 * s, -2 * s, 2 * s, 2 * s, 6 * s, 16 * s);
+    body.addColorStop(0, "#fff9c4");
+    body.addColorStop(0.35, "#fdd835");
+    body.addColorStop(0.7, "#f9a825");
+    body.addColorStop(1, "#f57f17");
+    c.fillStyle = body;
+    c.beginPath();
+    c.ellipse(0, 4 * s, 12 * s, 14 * s, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#e65100";
+    c.lineWidth = 1.3 * s;
+    c.stroke();
+
+    c.strokeStyle = "rgba(184, 119, 47, 0.55)";
+    c.lineWidth = 0.9 * s;
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 4; col++) {
+        const px = (-7 + col * 4.5) * s;
+        const py = (-4 + row * 3.8) * s;
+        c.beginPath();
+        c.arc(px, py, 1.1 * s, 0, Math.PI * 2);
+        c.stroke();
+      }
+    }
+
+    drawCutePlantEyes(c, s, {
+      y: 2,
+      spread: 4,
+      whiteR: 3.2,
+      pupilR: 1.25,
+      pupilColor: "#3e2723",
+      pupilLX: 0.35,
+      pupilLY: 0.15,
+      pupilRX: -0.25,
+      pupilRY: 0.1,
+    });
+
+    c.restore();
+  }
+
   /** 藤、綠葉、紫葡萄串；成熟後朝同欄下方射出紫色子彈 */
   function drawGrapeCharacter(c, cx, cy, scale) {
     const s = scale;
@@ -1598,6 +1950,23 @@
       return "";
     }
     return grapeIconDataUrl;
+  }
+
+  function getPineappleIconDataUrl() {
+    if (pineappleIconDataUrl) return pineappleIconDataUrl;
+    try {
+      const ic = document.createElement("canvas");
+      ic.width = 40;
+      ic.height = 44;
+      const ictx = ic.getContext("2d");
+      if (!ictx) return "";
+      ictx.clearRect(0, 0, 40, 44);
+      drawPineappleCharacter(ictx, 20, 26, 0.72);
+      pineappleIconDataUrl = ic.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
+    return pineappleIconDataUrl;
   }
 
   function drawProjectile(pr) {
@@ -2043,11 +2412,153 @@
     ctx.restore();
   }
 
+  /** @param {{ x: number, y: number, hp: number }} m */
+  function drawLizardWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#689f38";
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 14, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#33691e";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = "#558b2f";
+    ctx.beginPath();
+    ctx.ellipse(10, 0, 8, 7, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff59d";
+    ctx.beginPath();
+    ctx.arc(13, -2, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a1a1a";
+    ctx.beginPath();
+    ctx.arc(14, -2, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#33691e";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-12, 6);
+    ctx.quadraticCurveTo(-18, 10, -22, 18);
+    ctx.stroke();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 14);
+    }
+    ctx.restore();
+  }
+
+  /** @param {{ x: number, y: number, hp: number }} m */
+  function drawSnakeWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const w = Math.sin(performance.now() / 140) * 0.15;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(w);
+    ctx.scale(sc, sc);
+    ctx.strokeStyle = "#2e7d32";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-16, 8);
+    ctx.quadraticCurveTo(-4, -4, 14, 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#1b5e20";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(10, -1);
+    ctx.lineTo(18, -4);
+    ctx.stroke();
+    ctx.fillStyle = "#ffeb3b";
+    ctx.beginPath();
+    ctx.arc(16, -2, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(17, -2, 0.85, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 16);
+    }
+    ctx.restore();
+  }
+
+  /** @param {{ x: number, y: number, hp: number }} m */
+  function drawJayWorld(m, showHp, worldScale) {
+    const x = m.x;
+    const y = m.y;
+    if (showHp === undefined) showHp = true;
+    const sc = worldScale === undefined ? 1 : worldScale;
+    const flap = Math.sin(performance.now() / 72) * 0.12;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "#1565c0";
+    ctx.beginPath();
+    ctx.ellipse(-14, 2 + flap * 6, 12, 8, -0.35 + flap * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0d47a1";
+    ctx.beginPath();
+    ctx.ellipse(12, 4 + flap * 5, 11, 7, 0.4 - flap * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#eceff1";
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 10, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#263238";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#37474f";
+    ctx.beginPath();
+    ctx.moveTo(6, -4);
+    ctx.lineTo(20, -8);
+    ctx.lineTo(8, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-2, 0, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(-1, 0, 1, 0, Math.PI * 2);
+    ctx.fill();
+    if (showHp) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = 2;
+      ctx.fillText(String(Math.max(1, Math.ceil(m.hp))), 0, 18);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
   function drawMobWorld(m, showHp) {
     if (m.type === "dragonfly") drawDragonflyWorld(m, showHp, 1.18);
     else if (m.type === "butterfly") drawButterflyWorld(m, showHp);
     else if (m.type === "raven") drawRavenWorld(m, showHp, 1.05);
     else if (m.type === "beetle") drawBeetleWorld(m, showHp, 1);
+    else if (m.type === "lizard") drawLizardWorld(m, showHp, 0.95);
+    else if (m.type === "snake") drawSnakeWorld(m, showHp, 0.92);
+    else if (m.type === "jay") drawJayWorld(m, showHp, 0.88);
     else drawBeeWorld(m, showHp);
   }
 
@@ -2083,7 +2594,8 @@
       if (!p.mature) {
         const total = growTotalForFieldKind(pk);
         const t = Math.min(1, Math.max(0, 1 - p.growLeft / total));
-        ctx.fillStyle = pk === "fern" ? "#2e4a2e" : pk === "grape" ? "#4a148c" : "#4a3728";
+        ctx.fillStyle =
+          pk === "fern" ? "#2e4a2e" : pk === "grape" ? "#4a148c" : pk === "pineapple" ? "#5d4037" : "#4a3728";
         ctx.beginPath();
         ctx.arc(cx, cy - 4 + 8 * (1 - t), 6 + 4 * t, 0, Math.PI * 2);
         ctx.fill();
@@ -2095,6 +2607,8 @@
         drawFernCharacter(ctx, cx, cy + 2, 0.78);
       } else if (pk === "grape") {
         drawGrapeCharacter(ctx, cx, cy + 2, 0.78);
+      } else if (pk === "pineapple") {
+        drawPineappleCharacter(ctx, cx, cy + 2, 0.72);
       } else {
         drawStrawberryCharacter(ctx, cx, cy - 2, 1);
       }
@@ -2112,10 +2626,11 @@
     ctx.textAlign = "center";
     ctx.fillText("商店", shopRect.x + shopRect.w / 2, shopRect.y + 24);
     ctx.font = "9px sans-serif";
-    ctx.fillText("苗 $" + STRAWBERRY_COST + " · 5s", shopRect.x + shopRect.w / 2, shopRect.y + 42);
-    ctx.fillText("蕨 $" + FERN_COST + " · 10s 近戰 2／s", shopRect.x + shopRect.w / 2, shopRect.y + 56);
-    ctx.fillText("葡 $" + GRAPE_COST + " · 15s 每0.3s1傷", shopRect.x + shopRect.w / 2, shopRect.y + 70);
-    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 84);
+    ctx.fillText("苗 $" + STRAWBERRY_COST + " · 5s", shopRect.x + shopRect.w / 2, shopRect.y + 40);
+    ctx.fillText("蕨 $" + FERN_COST + " · 10s 近2／s", shopRect.x + shopRect.w / 2, shopRect.y + 52);
+    ctx.fillText("葡 $" + GRAPE_COST + " · 15s 射擊", shopRect.x + shopRect.w / 2, shopRect.y + 64);
+    ctx.fillText("鳳 $" + PINEAPPLE_COST + " · " + GROW_TIME_PINEAPPLE + "s 近15／s", shopRect.x + shopRect.w / 2, shopRect.y + 76);
+    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 90);
   }
 
   function drawGearShop() {
@@ -2150,6 +2665,24 @@
     ctx.fillText("蜂／蝶／蟲／蜻王／烏鴉", sellShopRect.x + sellShopRect.w / 2, sellShopRect.y + 50);
   }
 
+  function drawRebirthShop() {
+    ctx.fillStyle = "#37474f";
+    ctx.fillRect(rebirthShopRect.x, rebirthShopRect.y, rebirthShopRect.w, rebirthShopRect.h);
+    ctx.strokeStyle = "#263238";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(rebirthShopRect.x, rebirthShopRect.y, rebirthShopRect.w, rebirthShopRect.h);
+    ctx.fillStyle = "#eceff1";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    const rcx = rebirthShopRect.x + rebirthShopRect.w / 2;
+    ctx.fillText("轉生店", rcx, rebirthShopRect.y + 22);
+    ctx.font = "9px sans-serif";
+    ctx.fillStyle = "#b0bec5";
+    ctx.fillText("生成池升級", rcx, rebirthShopRect.y + 40);
+    ctx.fillText("切換表", rcx, rebirthShopRect.y + 54);
+    ctx.fillText("靠近開選單", rcx, rebirthShopRect.y + 72);
+  }
+
   function drawSpawner() {
     ctx.fillStyle = "#0d0d0d";
     ctx.fillRect(spawnerRect.x, spawnerRect.y, spawnerRect.w, spawnerRect.h);
@@ -2158,14 +2691,19 @@
     ctx.fillStyle = "#666";
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("生成", spawnerRect.x + spawnerRect.w / 2, spawnerRect.y + spawnerRect.h / 2 - 1);
+    const cx = spawnerRect.x + spawnerRect.w / 2;
+    ctx.fillText("生成", cx, spawnerRect.y + 14);
     ctx.font = "9px sans-serif";
     ctx.fillStyle = "#8bc34a";
-    ctx.fillText(
-      "~" + getSpawnIntervalSec().toFixed(1).replace(/\.0$/, "") + "s／隻",
-      spawnerRect.x + spawnerRect.w / 2,
-      spawnerRect.y + spawnerRect.h / 2 + 11
-    );
+    ctx.fillText("~" + getSpawnIntervalSec().toFixed(1).replace(/\.0$/, "") + "s／隻", cx, spawnerRect.y + 28);
+    const untilBoss = Math.max(0, KILLS_PER_DRAGONFLY_BOSS - defeatCount);
+    ctx.font = "8px sans-serif";
+    ctx.fillStyle = "#ffcc80";
+    ctx.fillText("距蜻蜓王：還需 " + untilBoss + " 隻", cx, spawnerRect.y + 42);
+    const poolLabel =
+      activeSpawnTable === 1 && spawnerUpgradeOwned ? "池：Upgrade 1" : "池：Default";
+    ctx.fillStyle = "#90a4ae";
+    ctx.fillText(poolLabel, cx, spawnerRect.y + 52);
   }
 
   function drawGraySlots() {
@@ -2203,6 +2741,12 @@
           drawRavenWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "raven" }, false, 0.5);
         } else if (s.worker === "dragonfly") {
           drawDragonflyWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "dragonfly" }, false, 0.38);
+        } else if (s.worker === "lizard") {
+          drawLizardWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "lizard" }, false, 0.42);
+        } else if (s.worker === "snake") {
+          drawSnakeWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "snake" }, false, 0.4);
+        } else if (s.worker === "jay") {
+          drawJayWorld({ x: cx, y: cy, hp: 1, speed: 0, type: "jay" }, false, 0.4);
         }
         ctx.fillStyle = "#000";
         ctx.font = "bold 8px sans-serif";
@@ -2216,7 +2760,13 @@
                 ? "$4/s"
                 : s.worker === "butterfly"
                   ? "$2/s"
-                  : "$1/s";
+                  : s.worker === "lizard"
+                    ? "$8/s"
+                    : s.worker === "snake"
+                      ? "$11/s"
+                      : s.worker === "jay"
+                        ? "$15/s"
+                        : "$1/s";
         ctx.fillText(rateLabel, s.x + s.w / 2, s.y + s.h - 2);
       }
     });
@@ -2241,7 +2791,7 @@
     ctx.font = "13px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(
-      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨近戰 · 左下道具店鏟子剷植物 · 解鎖道生成 −1 秒 · 百隻出蜻蜓王",
+      "中央綠道起始解鎖 · 草莓／葡萄射擊 · 蕨／鳳梨近戰 · 左下道具店鏟子 · 解鎖道生成 −1 秒 · 百隻出蜻蜓王 · 右下轉生店升級生成池",
       GRID_X,
       GRID_Y - 92
     );
@@ -2271,6 +2821,7 @@
     drawShop();
     drawGearShop();
     drawSellShop();
+    drawRebirthShop();
     for (const mob of mobs) drawMobWorld(mob);
     drawPlayer();
 
@@ -2280,10 +2831,15 @@
   if (sellRavenPriceEl) sellRavenPriceEl.textContent = String(SELL_RAVEN_PRICE);
   if (sellBeetlePriceEl) sellBeetlePriceEl.textContent = String(SELL_BEETLE_PRICE);
   if (sellDragonflyPriceEl) sellDragonflyPriceEl.textContent = String(SELL_DRAGONFLY_PRICE);
+  if (sellLizardPriceEl) sellLizardPriceEl.textContent = String(SELL_LIZARD_PRICE);
+  if (sellSnakePriceEl) sellSnakePriceEl.textContent = String(SELL_SNAKE_PRICE);
+  if (sellJayPriceEl) sellJayPriceEl.textContent = String(SELL_JAY_PRICE);
   if (shovelPriceEl) shovelPriceEl.textContent = String(SHOVEL_COST);
+  if (pineapplePriceEl) pineapplePriceEl.textContent = String(PINEAPPLE_COST);
 
   buildInvSlots();
   loadGame();
   refreshInvUi();
+  updateRebirthModal();
   requestAnimationFrame(loop);
 })();
