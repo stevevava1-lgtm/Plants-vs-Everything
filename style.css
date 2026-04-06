@@ -315,6 +315,11 @@ body.backpack-open #gameWrap {
   box-shadow: 0 0 0 2px rgba(124, 179, 66, 0.45);
 }
 
+.inv-slot.inv-slot-mega:not(.selected-plant) {
+  border-color: #ffe082;
+  box-shadow: 0 0 0 1px rgba(255, 213, 79, 0.65);
+}
+
 .inv-slot.selected-enemy {
   border-color: #ffca28;
   box-shadow: 0 0 0 2px rgba(255, 202, 40, 0.4);
