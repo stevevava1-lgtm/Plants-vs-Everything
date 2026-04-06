@@ -20,6 +20,8 @@
   const btnBuyGrape = document.getElementById("btnBuyGrape");
   const btnBuyPineapple = document.getElementById("btnBuyPineapple");
   const pineapplePriceEl = document.getElementById("pineapplePrice");
+  const btnBuyAppleTree = document.getElementById("btnBuyAppleTree");
+  const appleTreePriceEl = document.getElementById("appleTreePrice");
   const btnClose = document.getElementById("btnClose");
   const btnBuyShovel = document.getElementById("btnBuyShovel");
   const btnBuyReclaimer = document.getElementById("btnBuyReclaimer");
@@ -62,6 +64,8 @@
   const CODE_REWARD_PINEAPPLE = "HXO1";
   /** 兌換後取得 1 巨型蕨苗（種下為 2× 體型與近戰傷害） */
   const CODE_REWARD_MEGA_FERN = "B154ERN";
+  /** 兌換後取得 1 巨型蘋果樹苗（種下即 2× 體型、2× 蘋果傷害） */
+  const CODE_REWARD_APPLE_TREE_MEGA = "H6VY43";
   /** 種植時一般苗有機率變為巨型（2× 繪製、2× 傷害；子彈外觀不變） */
   const MEGA_PLANT_CHANCE = 0.05;
   const SAVE_INTERVAL_SEC = 2;
@@ -84,6 +88,11 @@
   /** 鳳梨：成熟後同欄近戰，與蕨相同判定距離 */
   const GROW_TIME_PINEAPPLE = 12;
   const PINEAPPLE_DPS = 15;
+  /** 蘋果樹：$5000，每秒 1 顆蘋果、每顆 15 傷 */
+  const APPLE_TREE_COST = 5000;
+  const GROW_TIME_APPLE_TREE = 18;
+  const APPLE_TREE_SHOOT_INTERVAL = 1;
+  const APPLE_TREE_DMG = 15;
   const SHOVEL_COST = 35;
   const RECLAIMER_COST = 100;
   const FAVORITE_SLOTS = 50;
@@ -160,9 +169,9 @@
   /** 中央道（欄 3）免費；其餘六道由中往外：左 300/600/1200，右 2400/4800/9600 */
   const LANE_UNLOCK_PRICE = [300, 600, 1200, 0, 2400, 4800, 9600];
 
-  const shopRect = { x: 40, y: 208, w: 100, h: 158 };
-  const gearShopRect = { x: 40, y: 378, w: 100, h: 100 };
-  const favoriteBoxRect = { x: 40, y: 482, w: 100, h: 72 };
+  const shopRect = { x: 40, y: 208, w: 100, h: 172 };
+  const gearShopRect = { x: 40, y: 392, w: 100, h: 100 };
+  const favoriteBoxRect = { x: 40, y: 496, w: 100, h: 72 };
   const sellShopRect = { x: 780, y: 220, w: 100, h: 140 };
   const rebirthShopRect = { x: 780, y: 365, w: 100, h: 96 };
   const spawnerRect = {
@@ -195,7 +204,7 @@
   /** 僅中央綠道（欄 3）起始解鎖 */
   const laneUnlocked = [false, false, false, true, false, false, false];
 
-  /** @type {(null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple')[]} */
+  /** @type {(null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega')[]} */
   const plantInv = new Array(PLANT_SLOTS).fill(null);
   /** @type {(null | 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk')[]} */
   const enemyInv = new Array(ENEMY_SLOTS).fill(null);
@@ -219,6 +228,7 @@
   let fernIconDataUrl = "";
   let grapeIconDataUrl = "";
   let pineappleIconDataUrl = "";
+  let appleTreeIconDataUrl = "";
 
   const keys = {};
   const player = {
@@ -228,13 +238,13 @@
     speed: 180,
   };
 
-  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple', growLeft: number, mature: boolean, shootCd: number, mega?: boolean }[]} */
+  /** @type {{ row: number, col: number, kind: 'strawberry' | 'fern' | 'grape' | 'pineapple' | 'apple_tree', growLeft: number, mature: boolean, shootCd: number, mega?: boolean }[]} */
   const plants = [];
 
   /** @type {{ x: number, y: number, hp: number, speed: number, type: 'bee' | 'butterfly' | 'raven' | 'beetle' | 'dragonfly' | 'lizard' | 'snake' | 'jay' | 'robin' | 'hawk', lane: number, mega?: boolean }[]} */
   const mobs = [];
 
-  /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number, src?: 'strawberry' | 'grape' }[]} */
+  /** @type {{ x: number, y: number, vx: number, vy: number, dmg: number, lane: number, src?: 'strawberry' | 'grape' | 'apple' }[]} */
   const projectiles = [];
 
   let spawnAcc = 0;
@@ -423,7 +433,7 @@
         vy: pr.vy,
         dmg: pr.dmg,
         lane: pr.lane,
-        src: pr.src === "grape" ? "grape" : "strawberry",
+        src: pr.src === "grape" ? "grape" : pr.src === "apple" ? "apple" : "strawberry",
       })),
       player: { x: player.x, y: player.y },
       spawnAcc,
@@ -462,7 +472,15 @@
         for (let i = 0; i < PLANT_SLOTS; i++) {
           const t = raw.plantInv[i];
           plantInv[i] =
-            t === "seed" || t === "fern" || t === "fern_mega" || t === "grape" || t === "pineapple" ? t : null;
+            t === "seed" ||
+            t === "fern" ||
+            t === "fern_mega" ||
+            t === "grape" ||
+            t === "pineapple" ||
+            t === "apple_tree" ||
+            t === "apple_tree_mega"
+              ? t
+              : null;
         }
       }
 
@@ -491,7 +509,9 @@
                 ? "grape"
                 : p.kind === "pineapple"
                   ? "pineapple"
-                  : "strawberry";
+                  : p.kind === "apple_tree"
+                    ? "apple_tree"
+                    : "strawberry";
           plants.push({
             row: p.row | 0,
             col: p.col | 0,
@@ -582,7 +602,8 @@
             vy: isFinite(pr.vy) ? pr.vy : PROJ_SPEED,
             dmg: Math.max(1, Number(pr.dmg) || 1),
             lane,
-            src: pr.src === "grape" ? "grape" : "strawberry",
+            src:
+              pr.src === "grape" ? "grape" : pr.src === "apple" ? "apple" : "strawberry",
           });
         }
       }
@@ -680,6 +701,7 @@
     if (kind === "fern") return GROW_TIME_FERN;
     if (kind === "grape") return GROW_TIME_GRAPE;
     if (kind === "pineapple") return GROW_TIME_PINEAPPLE;
+    if (kind === "apple_tree") return GROW_TIME_APPLE_TREE;
     return GROW_TIME_STRAWBERRY;
   }
 
@@ -735,6 +757,17 @@
     return true;
   }
 
+  function addPlantAppleTree() {
+    const idx = plantInv.indexOf(null);
+    if (idx === -1) {
+      showWarning("植物背包已滿（10 格）！");
+      return false;
+    }
+    plantInv[idx] = "apple_tree";
+    refreshInvUi();
+    return true;
+  }
+
   function plantBackpackHasSpace() {
     return plantInv.indexOf(null) !== -1;
   }
@@ -745,7 +778,9 @@
       t === "fern" ||
       t === "fern_mega" ||
       t === "grape" ||
-      t === "pineapple"
+      t === "pineapple" ||
+      t === "apple_tree" ||
+      t === "apple_tree_mega"
     );
   }
 
@@ -766,6 +801,7 @@
     if (k === "fern") return p.mega ? "fern_mega" : "fern";
     if (k === "grape") return "grape";
     if (k === "pineapple") return "pineapple";
+    if (k === "apple_tree") return p.mega ? "apple_tree_mega" : "apple_tree";
     return "seed";
   }
 
@@ -784,6 +820,17 @@
       return false;
     }
     plantInv[idx] = "fern_mega";
+    refreshInvUi();
+    return true;
+  }
+
+  function addPlantAppleTreeMega() {
+    const idx = plantInv.indexOf(null);
+    if (idx === -1) {
+      showWarning("植物背包已滿（10 格）！");
+      return false;
+    }
+    plantInv[idx] = "apple_tree_mega";
     refreshInvUi();
     return true;
   }
@@ -817,11 +864,19 @@
     return mega ? base * 2 : base;
   }
 
-  /** @returns {null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple'} */
+  /** @returns {null | 'seed' | 'fern' | 'fern_mega' | 'grape' | 'pineapple' | 'apple_tree' | 'apple_tree_mega'} */
   function takePlantItemForPlanting() {
     if (selectedPlantSlot >= 0) {
       const t = plantInv[selectedPlantSlot];
-      if (t === "seed" || t === "fern" || t === "fern_mega" || t === "grape" || t === "pineapple") {
+      if (
+        t === "seed" ||
+        t === "fern" ||
+        t === "fern_mega" ||
+        t === "grape" ||
+        t === "pineapple" ||
+        t === "apple_tree" ||
+        t === "apple_tree_mega"
+      ) {
         plantInv[selectedPlantSlot] = null;
         refreshInvUi();
         return t;
@@ -850,6 +905,18 @@
       plantInv[idx] = null;
       refreshInvUi();
       return "pineapple";
+    }
+    idx = plantInv.indexOf("apple_tree");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "apple_tree";
+    }
+    idx = plantInv.indexOf("apple_tree_mega");
+    if (idx !== -1) {
+      plantInv[idx] = null;
+      refreshInvUi();
+      return "apple_tree_mega";
     }
     idx = plantInv.indexOf("fern_mega");
     if (idx !== -1) {
@@ -903,7 +970,7 @@
     pSlots.forEach((el, i) => {
       el.classList.toggle("filled", plantInv[i] !== null);
       el.classList.toggle("selected-plant", i === selectedPlantSlot);
-      el.classList.toggle("inv-slot-mega", plantInv[i] === "fern_mega");
+      el.classList.toggle("inv-slot-mega", plantInv[i] === "fern_mega" || plantInv[i] === "apple_tree_mega");
       el.innerHTML = "";
       if (plantInv[i] === "seed") {
         const url = getStrawberrySeedIconDataUrl();
@@ -988,6 +1055,40 @@
           sp.style.fontSize = "13px";
           sp.style.color = "#ffe082";
           sp.title = "鳳梨苗";
+          el.appendChild(sp);
+        }
+      } else if (plantInv[i] === "apple_tree") {
+        const url = getAppleTreeIconDataUrl();
+        if (url) {
+          const m = document.createElement("img");
+          m.className = "icon-seed-img";
+          m.src = url;
+          m.alt = "蘋果樹苗";
+          m.title = "蘋果樹苗（每秒 1 顆蘋果，15 傷害）";
+          el.appendChild(m);
+        } else {
+          const sp = document.createElement("span");
+          sp.textContent = "蘋";
+          sp.style.fontSize = "12px";
+          sp.style.color = "#c8e6c9";
+          sp.title = "蘋果樹苗";
+          el.appendChild(sp);
+        }
+      } else if (plantInv[i] === "apple_tree_mega") {
+        const url = getAppleTreeIconDataUrl();
+        if (url) {
+          const m = document.createElement("img");
+          m.className = "icon-seed-img";
+          m.src = url;
+          m.alt = "2× 蘋果樹苗";
+          m.title = "2× 體型蘋果樹苗（兌換）：種下即巨型（2× 體型、2× 蘋果傷害）";
+          el.appendChild(m);
+        } else {
+          const sp = document.createElement("span");
+          sp.textContent = "蘋+";
+          sp.style.fontSize = "11px";
+          sp.style.color = "#fff59d";
+          sp.title = "2× 體型蘋果樹苗（兌換）";
           el.appendChild(sp);
         }
       }
@@ -1182,11 +1283,11 @@
     return mobs.some((m) => m.lane === laneCol && m.y > plantCenterY - margin);
   }
 
-  /** @param {{ dmg?: number, src?: 'strawberry' | 'grape' }} [opts] */
+  /** @param {{ dmg?: number, src?: 'strawberry' | 'grape' | 'apple' }} [opts] */
   function spawnDownProjectile(laneCol, startY, opts) {
     const o = opts || {};
     const dmg = typeof o.dmg === "number" && o.dmg > 0 ? o.dmg : 1;
-    const src = o.src === "grape" ? "grape" : "strawberry";
+    const src = o.src === "grape" ? "grape" : o.src === "apple" ? "apple" : "strawberry";
     projectiles.push({
       x: laneCenterX(laneCol),
       y: startY,
@@ -1322,6 +1423,22 @@
         return;
       }
       money -= PINEAPPLE_COST;
+      refreshInvUi();
+      closeAllModals();
+    });
+  }
+
+  if (btnBuyAppleTree) {
+    btnBuyAppleTree.addEventListener("click", () => {
+      if (money < APPLE_TREE_COST) {
+        closeAllModals();
+        return;
+      }
+      if (!addPlantAppleTree()) {
+        closeAllModals();
+        return;
+      }
+      money -= APPLE_TREE_COST;
       refreshInvUi();
       closeAllModals();
     });
@@ -1481,6 +1598,19 @@
       persistRedeemedCodesSet(redeemedCodes);
       codeInput.value = "";
       showSuccess("已領取 1 粒 2× 體型蕨種子！種下後即為巨型蕨。請在植物背包查看。");
+      saveGame();
+      return;
+    }
+    if (code === CODE_REWARD_APPLE_TREE_MEGA) {
+      if (!plantBackpackHasSpace()) {
+        showWarning("植物背包已滿，請先清出一格再放兌換獎勵。");
+        return;
+      }
+      if (!addPlantAppleTreeMega()) return;
+      redeemedCodes.add(code);
+      persistRedeemedCodesSet(redeemedCodes);
+      codeInput.value = "";
+      showSuccess("已領取 1 株 2× 體型蘋果樹苗！種下後即為巨型蘋果樹（2× 體型、2× 蘋果傷害）。請在植物背包查看。");
       saveGame();
       return;
     }
@@ -1777,14 +1907,17 @@
             plantInv.indexOf("fern") === -1 &&
             plantInv.indexOf("grape") === -1 &&
             plantInv.indexOf("pineapple") === -1 &&
+            plantInv.indexOf("apple_tree") === -1 &&
+            plantInv.indexOf("apple_tree_mega") === -1 &&
             plantInv.indexOf("fern_mega") === -1
           ) {
-            showWarning("沒有可種植的苗（草莓／蕨／葡萄／鳳梨）！");
+            showWarning("沒有可種植的苗（草莓／蕨／葡萄／鳳梨／蘋果樹）！");
           }
           return;
         }
-        // 僅兌換碼給的 fern_mega 事先決定巨型；商店／其餘苗的巨型一律在種植當下骰定
-        const mega = item === "fern_mega" ? true : Math.random() < MEGA_PLANT_CHANCE;
+        // 僅兌換碼給的 fern_mega／apple_tree_mega 事先決定巨型；商店／其餘苗的巨型一律在種植當下骰定
+        const mega =
+          item === "fern_mega" || item === "apple_tree_mega" ? true : Math.random() < MEGA_PLANT_CHANCE;
         const kind =
           item === "seed"
             ? "strawberry"
@@ -1792,7 +1925,9 @@
               ? "fern"
               : item === "grape"
                 ? "grape"
-                : "pineapple";
+                : item === "apple_tree" || item === "apple_tree_mega"
+                  ? "apple_tree"
+                  : "pineapple";
         plants.push({
           row: g.row,
           col: g.col,
@@ -1876,6 +2011,17 @@
           const shootY = pc.y - 10;
           if (hasMobAheadInLane(p.col, pc.y)) {
             spawnDownProjectile(p.col, shootY, { src: "grape", dmg: plantDamageMult(p) });
+          }
+        }
+      } else if (p.kind === "apple_tree") {
+        p.shootCd += dt;
+        if (p.shootCd >= APPLE_TREE_SHOOT_INTERVAL) {
+          p.shootCd = 0;
+          const pc = cellCenter(p.row, p.col);
+          const shootY = pc.y - 10;
+          if (hasMobAheadInLane(p.col, pc.y)) {
+            const dmg = APPLE_TREE_DMG * plantDamageMult(p);
+            spawnDownProjectile(p.col, shootY, { src: "apple", dmg });
           }
         }
       } else if (p.kind === "fern") {
@@ -2349,6 +2495,71 @@
     c.restore();
   }
 
+  /** 蘋果樹：棕幹、綠冠、三顆小蘋果、特大雙眼 */
+  function drawAppleTreeCharacter(c, cx, cy, scale) {
+    const s = scale;
+    c.save();
+    c.translate(cx, cy);
+
+    c.fillStyle = "#4e342e";
+    c.strokeStyle = "#3e2723";
+    c.lineWidth = 1.2 * s;
+    c.fillRect(-5 * s, 2 * s, 10 * s, 16 * s);
+    c.strokeRect(-5 * s, 2 * s, 10 * s, 16 * s);
+
+    c.fillStyle = "#2e7d32";
+    c.beginPath();
+    c.arc(0, -8 * s, 15 * s, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#1b5e20";
+    c.lineWidth = 1.4 * s;
+    c.stroke();
+
+    c.fillStyle = "#1b5e20";
+    c.beginPath();
+    c.ellipse(-10 * s, -4 * s, 9 * s, 7 * s, -0.35, 0, Math.PI * 2);
+    c.ellipse(10 * s, -4 * s, 9 * s, 7 * s, 0.35, 0, Math.PI * 2);
+    c.fill();
+
+    const apples = [
+      [-9 * s, -14 * s],
+      [8 * s, -13 * s],
+      [0, -20 * s],
+    ];
+    for (let i = 0; i < apples.length; i++) {
+      const [ax, ay] = apples[i];
+      c.fillStyle = "#c62828";
+      c.beginPath();
+      c.arc(ax, ay, 3.2 * s, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = "#8e0000";
+      c.lineWidth = 0.65 * s;
+      c.stroke();
+      c.fillStyle = "#43a047";
+      c.beginPath();
+      c.ellipse(ax + 0.8 * s, ay - 3.4 * s, 1.4 * s, 0.9 * s, 0.2, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = "rgba(255,255,255,0.45)";
+      c.beginPath();
+      c.arc(ax - 1 * s, ay - 0.8 * s, 0.9 * s, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    drawCutePlantEyes(c, s, {
+      y: 5.5,
+      spread: 6.2,
+      whiteR: 5.8,
+      pupilR: 2.1,
+      pupilColor: "#1a237e",
+      pupilLX: 0.5,
+      pupilLY: 0.35,
+      pupilRX: -0.45,
+      pupilRY: 0.3,
+    });
+
+    c.restore();
+  }
+
   function getFernIconDataUrl() {
     if (fernIconDataUrl) return fernIconDataUrl;
     try {
@@ -2417,7 +2628,46 @@
     return pineappleIconDataUrl;
   }
 
+  function getAppleTreeIconDataUrl() {
+    if (appleTreeIconDataUrl) return appleTreeIconDataUrl;
+    try {
+      const ic = document.createElement("canvas");
+      ic.width = 40;
+      ic.height = 44;
+      const ictx = ic.getContext("2d");
+      if (!ictx) return "";
+      ictx.clearRect(0, 0, 40, 44);
+      drawAppleTreeCharacter(ictx, 20, 28, 0.55);
+      appleTreeIconDataUrl = ic.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
+    return appleTreeIconDataUrl;
+  }
+
   function drawProjectile(pr) {
+    if (pr.src === "apple") {
+      const r = 8;
+      ctx.beginPath();
+      ctx.arc(pr.x, pr.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#e53935";
+      ctx.fill();
+      ctx.strokeStyle = "#b71c1c";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.beginPath();
+      ctx.arc(pr.x - 2.5, pr.y - 2.5, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#43a047";
+      ctx.beginPath();
+      ctx.ellipse(pr.x + 5, pr.y - 7, 4, 2.2, -0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#2e7d32";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      return;
+    }
     const r = pr.src === "grape" ? 6.5 : 7;
     ctx.beginPath();
     ctx.arc(pr.x, pr.y, r, 0, Math.PI * 2);
@@ -3161,7 +3411,15 @@
         const total = growTotalForFieldKind(pk);
         const t = Math.min(1, Math.max(0, 1 - p.growLeft / total));
         ctx.fillStyle =
-          pk === "fern" ? "#2e4a2e" : pk === "grape" ? "#4a148c" : pk === "pineapple" ? "#5d4037" : "#4a3728";
+          pk === "fern"
+            ? "#2e4a2e"
+            : pk === "grape"
+              ? "#4a148c"
+              : pk === "pineapple"
+                ? "#5d4037"
+                : pk === "apple_tree"
+                  ? "#33691e"
+                  : "#4a3728";
         ctx.beginPath();
         ctx.arc(cx, cy - 4 + 8 * (1 - t), (6 + 4 * t) * ps, 0, Math.PI * 2);
         ctx.fill();
@@ -3175,6 +3433,8 @@
         drawGrapeCharacter(ctx, cx, cy + 2, 0.78 * ps);
       } else if (pk === "pineapple") {
         drawPineappleCharacter(ctx, cx, cy + 2, 0.72 * ps);
+      } else if (pk === "apple_tree") {
+        drawAppleTreeCharacter(ctx, cx, cy + 2, 0.62 * ps);
       } else {
         drawStrawberryCharacter(ctx, cx, cy - 2, 1 * ps);
       }
@@ -3196,7 +3456,8 @@
     ctx.fillText("蕨 $" + FERN_COST + " · 10s 近2／s", shopRect.x + shopRect.w / 2, shopRect.y + 52);
     ctx.fillText("葡 $" + GRAPE_COST + " · 15s 射擊", shopRect.x + shopRect.w / 2, shopRect.y + 64);
     ctx.fillText("鳳 $" + PINEAPPLE_COST + " · " + GROW_TIME_PINEAPPLE + "s 近15／s", shopRect.x + shopRect.w / 2, shopRect.y + 76);
-    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 90);
+    ctx.fillText("蘋 $" + APPLE_TREE_COST + " · " + GROW_TIME_APPLE_TREE + "s 15／發", shopRect.x + shopRect.w / 2, shopRect.y + 90);
+    ctx.fillText("靠近開選單", shopRect.x + shopRect.w / 2, shopRect.y + 104);
   }
 
   function drawGearShop() {
@@ -3419,6 +3680,7 @@
   if (shovelPriceEl) shovelPriceEl.textContent = String(SHOVEL_COST);
   if (reclaimerPriceEl) reclaimerPriceEl.textContent = String(RECLAIMER_COST);
   if (pineapplePriceEl) pineapplePriceEl.textContent = String(PINEAPPLE_COST);
+  if (appleTreePriceEl) appleTreePriceEl.textContent = String(APPLE_TREE_COST);
 
   buildInvSlots();
   if (favoriteGridEl) {
